@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/WXWizard1013/ThermalPeak/main/Pics/logo-white.png" alt="ThermalPeak Logo" width="500"/>
 
-# ⚡ ThermalPeak v2.3
+
 **Automated Polymarket Temperature Trading & Weather Arbitrage Engine**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
