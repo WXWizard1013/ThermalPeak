@@ -53,4 +53,4 @@ The bot is entirely controlled via Telegram. Below are the available commands:
 
 
 ---
-⚠️ **RISK WARNING:** This software executes automated statistical arbitrage on live prediction markets. It does **not** constitute financial advice. The weather models and execution logic provided by ThermalPeak are for informational and research purposes only. Automated trading carries substantial risk. **DYOR** and thoroughly audit your parameters before deploying live capital.
+*⚠️ **Disclaimer:** Not financial advice (NFA). ThermalPeak is a live arbitrage engine. Prediction markets are highly volatile, and algorithmic trading carries severe financial risk. Do your own research (DYOR) and deploy at your own risk.*
