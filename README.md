@@ -1,9 +1,15 @@
-# ThermalPeak v2.3
+<div align="center">
+  <img src="https://raw.githubusercontent.com/WXWizard1013/ThermalPeak/main/Pics/logo-white.png" alt="ThermalPeak Logo" width="500"/>
+
+# ⚡ ThermalPeak v2.3
 **Automated Polymarket Temperature Trading & Weather Arbitrage Engine**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
+</div>
+
+ThermalPeak bridges the gap between meteorological forecasting...
 
 ThermalPeak bridges the gap between meteorological forecasting and predictive markets. By synthesizing live Polymarket order books with hyper-local, bias-corrected weather models, it identifies execution edges and automates D+1 temperature trading directly via Telegram.
 
