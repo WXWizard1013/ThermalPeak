@@ -10,8 +10,6 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
 </div>
 
-ThermalPeak bridges the gap between meteorological forecasting...
-
 ThermalPeak bridges the gap between meteorological forecasting and predictive markets. By synthesizing live Polymarket order books with hyper-local, bias-corrected weather models, it identifies execution edges and automates D+1 temperature trading directly via Telegram.
 
 ---
