@@ -14,7 +14,7 @@ ThermalPeak bridges the gap between meteorological forecasting and predictive ma
 
 ---
 
-## ✨ System Architecture & Features
+##  System Architecture & Features
 
 * **Live Market Discovery**: Asynchronously polls Polymarket's Gamma and CLOB APIs to identify active D+1 daily temperature markets and fetch live Layer-2 order book liquidity.
 * **Algorithmic Weather Arbitrage**: Aggregates forecast data from Open-Meteo, NOAA NWS, and AVWX (METAR/TAF).
@@ -25,7 +25,7 @@ ThermalPeak bridges the gap between meteorological forecasting and predictive ma
 
 ---
 
-## 🎛️ Command Reference
+##  Command Reference
 
 The bot is entirely controlled via Telegram. Below are the available commands:
 
