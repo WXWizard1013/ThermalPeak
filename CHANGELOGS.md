@@ -13,7 +13,7 @@
 * **Smarter Execution Math**: Rebuilt the probability engine. Factors in Polymarket's 2% fee, applies strict edge caps to ignore "too good to be true" signals, and dynamically weighs short-term forecasts heavier near expiration.
 * **Cloud Database & Security**: Upgraded to PostgreSQL for secure, persistent trade logging, protected by a strict User ID whitelist.
 
-### 📊 v2.1 — Advanced Analytics (Mar 20, 2026)
+### 📊 v2.1 — Advanced Analytics (Mar 19, 2026)
 * **Model Accuracy Tracking**: Added the `/accu` command to track how often weather models (GFS/NOAA) historically align with actual Polymarket resolutions.
 * **Comprehensive Summaries**: Introduced `/summ` to generate deep-dive performance and PnL summaries.
 * **Manual Sweeps**: Added `/resolveall` to manually force-check and sweep all pending expired markets at once, freeing up capital faster.
