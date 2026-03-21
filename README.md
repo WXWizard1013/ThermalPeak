@@ -3,7 +3,7 @@
 
 ---
 
-### **Scan The Heat, Trade The Peak.**
+## **Scan The Heat, Trade The Peak.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
