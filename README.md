@@ -1,6 +1,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/WXWizard1013/ThermalPeak/main/Pics/logo-white.png" alt="ThermalPeak Logo" width="500"/>
-**Scan The Heat, Trade The Peak.**
+
+  **Scan The Heat, Trade The Peak.**
 
 ---
 
