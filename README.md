@@ -120,33 +120,7 @@ New York (KLGA), London (EGLC), Tokyo (RJTT), Shanghai (ZSPD), Singapore (WSSS),
 
 ---
 
-## Setup
-
-**Environment variables required:**
-
-```
-TELEGRAM_TOKEN=
-TELEGRAM_CHAT_ID=
-AVWX_TOKEN=
-DATABASE_URL=        # optional, falls back to CSV
-```
-
-**Dependencies (`requirements.txt`):**
-```
-python-telegram-bot==21.9
-aiohttp==3.9.5
-asyncpg
-Pillow
-```
-
-**Font files** (place in project root alongside `main.py`):
-```
-Inter_18pt-Bold.ttf
-Inter_18pt-Regular.ttf
-```
-Download from [fonts.google.com/specimen/Inter](https://fonts.google.com/specimen/Inter).
-
-The bot is locked to a whitelist of Telegram user IDs defined in `WHITELIST` inside `main.py`. Add your user ID there before deploying.
+Access is locked to a private whitelist — this bot is not open to the public. If you're interested in getting access, reach out to the owner directly via Telegram.
 
 ---
 
