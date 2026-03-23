@@ -18,7 +18,7 @@ ThermalPeak is a Telegram-based trading bot that finds edges in Polymarket's dai
 
 ## How It Works
 
-Each day Polymarket lists markets like *"Will the highest temperature in Tokyo exceed 14°C on March 23?"*. ThermalPeak discovers every active D+1 market across 30 cities, prices each bucket using a normal distribution over GFS model output (with NOAA and TAF corrections), and compares that fair value against the live market price. When the edge clears the threshold and Kelly sizing produces a bet above the minimum, it fires a signal.
+Each day Polymarket lists markets like *"Will the highest temperature in Tokyo exceed 14°C on March 23?"*. ThermalPeak discovers every active D+1 market across 35 cities, prices each bucket using a normal distribution over GFS model output (with NOAA and TAF corrections), and compares that fair value against the live market price. When the edge clears the threshold and Kelly sizing produces a bet above the minimum, it fires a signal.
 
 The model accounts for:
 - **Station bias** — LaGuardia runs warmer than city-center GFS, London City Airport runs warmer than Heathrow, etc. Each city has a hardcoded correction.
@@ -30,9 +30,10 @@ The model accounts for:
 ## Features
 
 **Market Discovery**
-- Discovers all active D+1 temperature markets across 30 cities at startup and on a configurable scan interval
+- Discovers all active D+1 temperature markets across 35 cities at startup and on a configurable scan interval
 - Fetches live prices directly from Polymarket's CLOB order book (not cached Gamma data)
 - Handles cities like Chengdu that Polymarket files under non-standard tags via direct slug fetch
+- On-demand full refresh (GFS + NOAA + CLOB) triggered by `/signals` — no stale data
 
 **Forecasting**
 - GFS via Open-Meteo — baseline 48h forecast for all cities
@@ -40,22 +41,34 @@ The model accounts for:
 - AVWX METAR/TAF — aviation weather for short-range confirmation near resolution
 - norm.cdf scoring — fair probability calculated over the bucket range, not a single threshold
 
+**Signal Alerts**
+- Auto-scan alerts only fire for **new** signals — no duplicate notifications if the same edge persists across scans
+- `/signals` shows all current edges including already-open positions, labelled `📌 Already open — monitoring` vs `✅ New position opened`
+
+**Take Profit (Limit Order Style)**
+- TP price is fixed at entry as an absolute level: `entry × (1 + tp_threshold)`
+- Stored per-trade in the database/CSV — survives bot restarts
+- When you change the TP threshold in settings, all open positions are immediately recalculated and checked against the new level
+- High-confidence signals (rated ≥ configured star threshold) use a separate higher TP tier
+
 **Risk Management**
 - Kelly Criterion position sizing with configurable fraction and max bet
-- Per-trade take-profit (standard and high-confidence tiers based on signal star rating)
-- Stop-loss monitoring on all open positions
+- Stop-loss monitoring — poll-based % drop check every 30 minutes
+- **SL Min Floor** — optional absolute ¢ floor that must also be breached before SL fires, protecting cheap entries (e.g. 10% entry) from being stopped out by normal noise
 - Daily drawdown limit — scanning pauses automatically if you breach your equity limit for the day
 - Slippage tolerance deducted from fair value before any signal fires
+- Immediate position check triggered when TP/SL/protection settings change
 
 **Portfolio**
 - Paper trading with full trade log (CSV or PostgreSQL)
 - Live unrealised PnL on open positions via CLOB price refresh
-- Auto-resolve: checks pending positions against live prices for TP/SL hits every 30 minutes
+- Position detail shows market price (bestAsk per token from CLOB) for both YES and NO independently — values don't need to sum to 100
+- Auto-resolve: checks pending positions against live prices for TP/SL hits every 30 minutes, with retry on failed price fetches
 - Sharpe ratio calculated across resolved trades (shows N/A until 10+ resolved)
-- Shareable PnL card generated as a PNG image — dark card, thermal gradient, all key stats
+- PnL card generated automatically on `/pnl` — 1280×680 HD dark card, thermal gradient, all key stats, centered pill
 
 **Settings**
-All risk and signal parameters are adjustable at runtime from the Telegram UI — no redeploy needed. Changes take effect immediately.
+All risk and signal parameters are adjustable at runtime from the Telegram UI — no redeploy needed. Changes take effect immediately. A **Reset to Default** button restores all settings in one tap.
 
 ---
 
@@ -63,16 +76,15 @@ All risk and signal parameters are adjustable at runtime from the Telegram UI �
 
 | Command | What it does |
 | :--- | :--- |
-| `/signals` | Scan all 30 cities for edges right now |
+| `/signals` | Full refresh then scan all 35 cities for edges right now |
 | `/vol` | Live volume table sorted by liquidity |
 | `/brief` | Cities where GFS disagrees with the market favourite by 3°C+ |
 | `/cities` | Browse all active D+1 markets, odds, METAR, and GFS forecast |
-| `/pnl` | Full PnL breakdown — wins, losses, Sharpe, unrealised |
-| `/card` | Generate and send a shareable PnL image card |
+| `/pnl` | PnL card as image + unrealised PnL on open positions |
 | `/pos` | Open positions with live prices and UPnL |
 | `/log` | Recent trade history |
 | `/export` | Download full trade log as CSV |
-| `/settings` | Adjust all signal and risk parameters |
+| `/settings` | Adjust all signal, risk, and protection parameters |
 | `/status` | Bot health, last scan time, active markets, current settings |
 | `/drift` | Check if GFS forecasts have shifted since last run |
 | `/accu` | Win/loss breakdown by city |
@@ -103,20 +115,26 @@ All adjustable via `/settings` in Telegram.
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| Take profit | 60% | Close position when up this % on entry price |
+| Take profit | 60% | Close when up this % from entry — stored as fixed limit price per trade |
 | TP high conf | 80% | TP threshold for signals rated high-conf stars or above |
-| Stop loss | 30% | Close position when down this % |
+| Stop loss | 30% | Close position when down this % from entry |
 | High conf stars | 8★ | Star rating that triggers the higher TP |
 | Slippage tolerance | 2% | Deducted from fair value before edge calc |
 | Max daily drawdown | 10% | Pause signals if today's losses hit this % of equity |
+
+**Protection**
+
+| Setting | Default | What it controls |
+| :--- | :--- | :--- |
+| SL min floor | 3¢ | Minimum absolute ¢ drop before SL fires. SL requires BOTH the % threshold AND this floor to be breached. Protects cheap entries (e.g. 10¢) from noise. Set to 0 to disable. |
 
 ---
 
 ## City Coverage
 
-30 cities across all major timezones, each mapped to the exact ICAO station Polymarket uses for resolution:
+35 cities across all major timezones, each mapped to the exact ICAO station Polymarket uses for resolution:
 
-New York (KLGA), London (EGLC), Tokyo (RJTT), Shanghai (ZSPD), Singapore (WSSS), Paris (LFPG), Seoul (RKSI), Hong Kong (HKO), Toronto (CYYZ), Warsaw (EPWA), Tel Aviv (LLBG), Lucknow (VILK), Madrid (LEMD), Sao Paulo (SBGR), Buenos Aires (SAEZ), Miami (KMIA), Chicago (KORD), Dallas (KDFW), Atlanta (KATL), Seattle (KSEA), Ankara (LTAC), Munich (EDDM), Milan (LIMC), Wellington (NZWN), Taipei (RCTP), Beijing (ZBAA), Shanghai (ZSPD), Shenzhen (ZGSZ), Wuhan (ZHHH), Chongqing (ZUCK), Chengdu (ZUUU)
+New York (KLGA), London (EGLC), Tokyo (RJTT), Shanghai (ZSPD), Singapore (WSSS), Paris (LFPG), Seoul (RKSI), Hong Kong (HKO), Toronto (CYYZ), Warsaw (EPWA), Tel Aviv (LLBG), Lucknow (VILK), Madrid (LEMD), Sao Paulo (SBGR), Buenos Aires (SAEZ), Miami (KMIA), Chicago (KORD), Dallas (KDFW), Atlanta (KATL), Seattle (KSEA), Ankara (LTAC), Munich (EDDM), Milan (LIMC), Wellington (NZWN), Taipei (RCTP), Beijing (ZBAA), Shenzhen (ZGSZ), Wuhan (ZHHH), Chongqing (ZUCK), Chengdu (ZUUU), San Francisco (KSFO), Austin (KAUS), Jakarta (WIII), Denver (KDEN), Houston (KIAH)
 
 ---
 
