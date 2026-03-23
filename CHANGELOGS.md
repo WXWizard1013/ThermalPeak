@@ -32,3 +32,18 @@
 * **Station bias corrections** — hardcoded micro-climate offsets for HKO Observatory (Hong Kong), CWA 46692 (Taipei city center), KLGA (LaGuardia), EGLC (London City), and ZSPD (Pudong coastal sea-breeze effect).
 * **NOAA NWS blending** — human-edited US forecasts blended 55/45 with GFS for US cities.
 * **Hours-ahead gate** — replaced strict UTC date matching with a 16–72h window to correctly handle Asian markets that resolve at noon UTC.
+
+### v2.3.1 — Risk Engine, UI Polish & 35-City Coverage (Mar 23, 2026)
+* **35-city coverage** — added San Francisco (KSFO) and Austin (KAUS), both confirmed against Polymarket resolution rules and added to NOAA coverage. Total active city count: 35.
+* **Limit-order TP** — take-profit price is now fixed at entry as an absolute level (`entry × (1 + tp_threshold)`) and stored per-trade in the database/CSV. Survives bot restarts. When the TP threshold is changed in settings, all open positions are immediately recalculated and checked against the new level — closes any position already past the updated target.
+* **SL min floor (Protection)** — new settings category. Configurable absolute ¢ floor that must be breached alongside the % stop-loss before SL fires. Protects cheap entries (e.g. 10¢) from being stopped out by normal market noise. Both conditions must be met simultaneously. Default 3¢, set to 0 to disable.
+* **Duplicate signal suppression** — auto-scan alerts now only fire for genuinely new signals. If the same edge persists across scans with no new positions opened, the loop stays silent. `/signals` still shows all edges including already-open ones, labelled `📌 Already open — monitoring`.
+* **PnL card auto-generated on `/pnl`** — removed the separate `/card` command. The HD 1280×680 card is now sent automatically every time `/pnl` is called. Pill centering fixed to measure actual text width — "In drawdown" no longer clips.
+* **On-demand forecast refresh in `/signals`** — GFS, NOAA, and CLOB prices are all refreshed live when `/signals` is called manually. Previously only CLOB was refreshed, meaning edge calculations ran on hours-old forecast data.
+* **TP/SL setting changes trigger immediate position check** — changing any risk threshold now runs `check_resolved_markets()` instantly with a retry, instead of waiting up to 30 minutes for the next scheduled check.
+* **SL alert format unified** — Stop Loss alerts now show `SL@30% + 3¢ floor (6★)` matching the Take Profit format. Fixed double-negative loss display (`Loss: --$X`) and missing `daily_loss` update on SL hits.
+* **Position detail overhauled** — shows TP as a fixed limit price (`TP: Limit 19%`), SL regime including floor, market price for YES and NO from CLOB bestAsk (independent values, not forced to sum to 100), and retry on failed price fetches.
+* **Settings → Reset to Default** — one-tap button restores all 11 settings to factory values with a confirmation summary.
+* **`/vol` loading indicator** — bot immediately replies "📡 Fetching latest market volumes..." before the 415-market CLOB fetch, so the user knows it's working.
+* **All `_FakeUpdate` classes patched** — `reply_photo` added to every inline button proxy class. Previously `/pnl` via the Refresh button or home screen errored with `type object 'message' has no attribute 'reply_photo'`.
+* **SL `daily_loss` tracking fixed** — SL hits now correctly increment the daily drawdown counter in both DB and CSV paths. Previously only market-resolved losses were counted.
