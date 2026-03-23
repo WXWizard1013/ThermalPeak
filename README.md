@@ -126,7 +126,7 @@ All adjustable via `/settings` in Telegram.
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| SL min floor | 5¢ | Minimum absolute ¢ drop before SL fires. SL requires BOTH the % threshold AND this floor to be breached. Protects cheap entries (e.g. 10¢) from noise. Set to 0 to disable. |
+| SL min floor | $5 | Minimum absolute $ drop before SL fires. SL requires BOTH the % threshold AND this floor to be breached. Protects cheap entries (e.g. 10%) from noise. Set to 0 to disable. |
 
 ---
 
