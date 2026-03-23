@@ -4,7 +4,7 @@
 * Proof-of-concept. Four cities (New York, London, Singapore, Shanghai), basic GFS scanning, text-only Telegram alerts, manual CSV logging, trades resolved by hand.
 
 ### v2.0 — Major Overhaul (Mar 18, 2026)
-* **City coverage** expanded from 4 to 36 cities worldwide.
+* **City coverage** expanded from 4 to 30 cities worldwide.
 * **Full Telegram UI** — replaced plain-text alerts with a proper inline keyboard interface for navigating markets, managing positions, and adjusting settings.
 * **Automated trade management** — auto Take-Profit (+60%) and Stop-Loss (-40%) introduced. Bot now tracks and resolves open positions without manual input.
 * **Live CLOB pricing** — switched from cached Gamma data to Polymarket's live order book. D+1 market isolation ensures prices are never stale.
