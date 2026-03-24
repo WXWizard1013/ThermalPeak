@@ -68,4 +68,4 @@
 * **True mid via /price endpoint** — mid is now `(ask + bid) / 2` from dedicated `/price` calls. The `/markets/{cid}` token object does not carry `bestAsk`/`bestBid` fields — those were non-existent.
 * **Ask/bid swap guard** — if `/price` returns BUY < SELL (inverted), values are swapped before display or UPnL use.
 * **1 decimal place on live probability** — `Now` displays as `11.0%` instead of `11%` across position card, `/pos` list, `/pnl` caption, and TP/SL alerts. Entry remains whole number.
-* **Refresh triggers immediate TP/SL check** — was in v2.4 but missed the changelog.
+* **Refresh triggers immediate TP/SL check**
