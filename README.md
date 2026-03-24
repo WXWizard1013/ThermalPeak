@@ -75,6 +75,34 @@ All risk and signal parameters are adjustable at runtime from the Telegram UI �
 
 ## Kelly Sizing — What Does "Kelly $11" Mean?
 
+## Price Lifecycle — Entry, UPnL & Exit
+
+Every position uses three distinct prices. Understanding which price is used where prevents confusion when comparing the bot's numbers to Polymarket's UI.
+
+| Price | Source | Used for |
+| :--- | :--- | :--- |
+| **YES ask** | `GET /price?side=BUY` | Entry cost basis — recorded in the trade log at signal time |
+| **YES bid** | `GET /price?side=SELL` | UPnL exit value — what you'd receive selling right now |
+| **YES mid** | `(ask + bid) / 2` | Fair probability reference — used for edge calculation only |
+| **NO ask** | `GET /price?side=BUY` | Entry cost for NO positions |
+| **NO bid** | `GET /price?side=SELL` | UPnL exit value for NO positions |
+
+**Example — New York YES, entry 22¢ ask, kelly $9.38:**
+
+| Scenario | Price | Formula | Result |
+| :--- | :--- | :--- | :--- |
+| Entry recorded | YES ask = 22¢ | cost basis | $9.38 notional |
+| Current YES bid = 20¢ | exit value | (20 − 22) / 22 × $9.38 | **UPnL −$0.85** |
+| TP fires at 34% gain | YES bid ≥ entry × 1.34 = 29.5¢ | limit check | +$3.19 profit |
+| SL fires at 30% drop | YES bid ≤ entry × 0.70 = 15.4¢ | poll check | −$2.81 loss |
+| Resolves YES | $1.00 | oracle settles | +$33.29 profit |
+| Resolves NO | $0.00 | oracle settles | −$9.38 loss |
+
+**Paper vs live gap (remaining):** In paper mode, TP and SL are poll-based checks every 5 minutes — the bot checks whether the bid has crossed the threshold. In live mode, TP should be a resting limit sell order placed at entry, and SL should be a market sell when triggered. This means paper TP may fire slightly late (bid already past the level before the next poll) and paper SL may slip slightly (bid drops further between polls).
+
+---
+
+
 When a signal fires, the bot recommends a bet size — e.g. `kelly $11`. This is the dollar amount to place on that position, calculated from the Kelly Criterion:
 
 ```
