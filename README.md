@@ -22,7 +22,6 @@ Each day Polymarket lists markets like *"Will the highest temperature in Tokyo e
 
 The model accounts for:
 - **Station bias** — LaGuardia runs warmer than city-center GFS, London City Airport runs warmer than Heathrow, etc. Each city has a hardcoded correction.
-- **Slippage** — your configured slippage tolerance is deducted from fair value before the edge calculation, so you're not fooling yourself about execution cost.
 - **Fee drag** — Polymarket charges ~2% per trade. Kelly sizing and EV calculations factor this in.
 
 ---
@@ -34,6 +33,7 @@ The model accounts for:
 - Fetches live prices directly from Polymarket's CLOB order book (not cached Gamma data)
 - Handles cities like Chengdu that Polymarket files under non-standard tags via direct slug fetch
 - On-demand full refresh (GFS + NOAA + CLOB) triggered by `/signals` — no stale data
+- Volume filter applied per-bucket (not city total) — ensures the specific outcome being signalled has real liquidity, not just the event aggregate
 
 **Forecasting**
 - GFS via Open-Meteo — baseline 48h forecast for all cities
@@ -44,31 +44,51 @@ The model accounts for:
 **Signal Alerts**
 - Auto-scan alerts only fire for **new** signals — no duplicate notifications if the same edge persists across scans
 - `/signals` shows all current edges including already-open positions, labelled `📌 Already open — monitoring` vs `✅ New position opened`
+- Signal notifications include a `📋 Pos` button for immediate position check after a signal fires
 
 **Take Profit (Limit Order Style)**
 - TP price is fixed at entry as an absolute level: `entry × (1 + tp_threshold)`
 - Stored per-trade in the database/CSV — survives bot restarts
 - When you change the TP threshold in settings, all open positions are immediately recalculated and checked against the new level
-- High-confidence signals (rated ≥ configured star threshold) use a separate higher TP tier
+- **TP scales by confidence × hours-to-close matrix** — high-confidence signals with >12h left run wider (80%); positions with <6h remaining run at 90% (hold to resolution). Temperature markets close before the daily maximum is recorded — the price rockets after market close, not before. Premature exits clip gains.
 
 **Risk Management**
 - Kelly Criterion position sizing with configurable fraction and max bet
-- Stop-loss monitoring — poll-based % drop check every 30 minutes
-- **SL Min Floor** — optional absolute ¢ floor that must also be breached before SL fires, protecting cheap entries (e.g. 10% entry) from being stopped out by normal noise
+- Stop-loss monitoring — poll-based % drop check every 5 minutes
 - Daily drawdown limit — scanning pauses automatically if you breach your equity limit for the day
-- Slippage tolerance deducted from fair value before any signal fires
-- Immediate position check triggered when TP/SL/protection settings change
+- Immediate position check triggered when TP/SL settings change
+- Refresh button on any position card triggers an immediate TP/SL check — no need to wait for the next poll
 
 **Portfolio**
 - Paper trading with full trade log (CSV or PostgreSQL)
-- Live unrealised PnL on open positions via CLOB price refresh
-- Position detail shows market price (bestAsk per token from CLOB) for both YES and NO independently — values don't need to sum to 100
-- Auto-resolve: checks pending positions against live prices for TP/SL hits every 30 minutes, with retry on failed price fetches
+- Live unrealised PnL on open positions — uses **bestBid** (real exit value) not mid price, so UPnL reflects what you'd actually receive selling right now
+- Position detail shows `YES ask / bid · NO ask · mid` — all four relevant prices at a glance
+- True mid computed as `(bestAsk + bestBid) / 2`, not `token.price`
+- Auto-resolve: checks pending positions against live prices for TP/SL hits every 5 minutes
 - Sharpe ratio calculated across resolved trades (shows N/A until 10+ resolved)
 - PnL card generated automatically on `/pnl` — 1280×680 HD dark card, thermal gradient, all key stats, centered pill
 
 **Settings**
 All risk and signal parameters are adjustable at runtime from the Telegram UI — no redeploy needed. Changes take effect immediately. A **Reset to Default** button restores all settings in one tap.
+
+---
+
+## Kelly Sizing — What Does "Kelly $11" Mean?
+
+When a signal fires, the bot recommends a bet size — e.g. `kelly $11`. This is the dollar amount to place on that position, calculated from the Kelly Criterion:
+
+```
+kelly_size = bankroll × kelly_fraction × (edge / fair_value)
+```
+
+**Example — Miami YES, edge 12.4%, fair value 26%, bankroll $1,000, kelly fraction 15%:**
+```
+$1,000 × 0.15 × (0.124 / 0.26) = ~$71 raw Kelly → capped and fractioned to $11
+```
+
+In plain terms: out of your $1,000 paper bankroll, the bot is saying *put $11 on this outcome*. If it resolves correctly, profit is roughly `kelly × (1/entry − 1)`. If wrong, you lose the $11.
+
+The number scales with your bankroll — profits accumulate into the bankroll, so bet sizes grow over time. `Max Bet` in Settings caps any single position regardless of what Kelly computes.
 
 ---
 
@@ -84,7 +104,7 @@ All risk and signal parameters are adjustable at runtime from the Telegram UI �
 | `/pos` | Open positions with live prices and UPnL |
 | `/log` | Recent trade history |
 | `/export` | Download full trade log as CSV |
-| `/settings` | Adjust all signal, risk, and protection parameters |
+| `/settings` | Adjust all signal and risk parameters |
 | `/status` | Bot health, last scan time, active markets, current settings |
 | `/drift` | Check if GFS forecasts have shifted since last run |
 | `/accu` | Win/loss breakdown by city |
@@ -105,28 +125,24 @@ All adjustable via `/settings` in Telegram.
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| Volume filter | $10K | Minimum market volume to include in scans |
-| Kelly fraction | 15% | Fraction of Kelly formula applied to bet sizing |
-| Max bet | $100 | Hard cap per position |
+| Vol filter (per bucket) | $1K | Minimum volume on the specific bucket being signalled |
 | Edge threshold | 8% | Minimum edge (fair − market) to fire a signal |
 | Scan interval | 1h | How often CLOB prices are refreshed |
+
+**Sizing**
+
+| Setting | Default | What it controls |
+| :--- | :--- | :--- |
+| Kelly fraction | 15% | Fraction of Kelly formula applied to bet sizing |
+| Max bet | $100 | Hard cap per position regardless of Kelly output |
 
 **Risk**
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| Take profit | 60% | Close when up this % from entry — stored as fixed limit price per trade |
-| TP high conf | 80% | TP threshold for signals rated high-conf stars or above |
-| Stop loss | 30% | Close position when down this % from entry |
-| High conf stars | 8★ | Star rating that triggers the higher TP |
-| Slippage tolerance | 2% | Deducted from fair value before edge calc |
+| Take profit (base) | 60% | Base TP — scaled by confidence × hours-to-close matrix at entry |
+| Stop loss | 30% | Close position when down this % from entry (poll-based) |
 | Max daily drawdown | 10% | Pause signals if today's losses hit this % of equity |
-
-**Protection**
-
-| Setting | Default | What it controls |
-| :--- | :--- | :--- |
-| SL min floor | $5 | Minimum absolute $ drop before SL fires. SL requires BOTH the % threshold AND this floor to be breached. Protects cheap entries (e.g. 10%) from noise. Set to 0 to disable. |
 
 ---
 
