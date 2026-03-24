@@ -75,6 +75,23 @@ All risk and signal parameters are adjustable at runtime from the Telegram UI �
 
 ## Kelly Sizing — What Does "Kelly $11" Mean?
 
+When a signal fires, the bot recommends a bet size — e.g. `kelly $11`. This is the dollar amount to place on that position, calculated from the Kelly Criterion:
+
+```
+kelly_size = bankroll × kelly_fraction × (edge / fair_value)
+```
+
+**Example — Miami YES, edge 12.4%, fair value 26%, bankroll $1,000, kelly fraction 15%:**
+```
+$1,000 × 0.15 × (0.124 / 0.26) = ~$71 raw Kelly → capped and fractioned to $11
+```
+
+In plain terms: out of your $1,000 paper bankroll, the bot is saying *put $11 on this outcome*. If it resolves correctly, profit is roughly `kelly × (1/entry − 1)`. If wrong, you lose the $11.
+
+The number scales with your bankroll — profits accumulate into the bankroll, so bet sizes grow over time. `Max Bet` in Settings caps any single position regardless of what Kelly computes.
+
+---
+
 ## Price Lifecycle — Entry, UPnL & Exit
 
 Every position uses three distinct prices. Understanding which price is used where prevents confusion when comparing the bot's numbers to Polymarket's UI.
@@ -98,25 +115,7 @@ Every position uses three distinct prices. Understanding which price is used whe
 | Resolves YES | $1.00 | oracle settles | +$33.29 profit |
 | Resolves NO | $0.00 | oracle settles | −$9.38 loss |
 
-**Paper vs live gap (remaining):** In paper mode, TP and SL are poll-based checks every 5 minutes — the bot checks whether the bid has crossed the threshold. In live mode, TP should be a resting limit sell order placed at entry, and SL should be a market sell when triggered. This means paper TP may fire slightly late (bid already past the level before the next poll) and paper SL may slip slightly (bid drops further between polls).
-
----
-
-
-When a signal fires, the bot recommends a bet size — e.g. `kelly $11`. This is the dollar amount to place on that position, calculated from the Kelly Criterion:
-
-```
-kelly_size = bankroll × kelly_fraction × (edge / fair_value)
-```
-
-**Example — Miami YES, edge 12.4%, fair value 26%, bankroll $1,000, kelly fraction 15%:**
-```
-$1,000 × 0.15 × (0.124 / 0.26) = ~$71 raw Kelly → capped and fractioned to $11
-```
-
-In plain terms: out of your $1,000 paper bankroll, the bot is saying *put $11 on this outcome*. If it resolves correctly, profit is roughly `kelly × (1/entry − 1)`. If wrong, you lose the $11.
-
-The number scales with your bankroll — profits accumulate into the bankroll, so bet sizes grow over time. `Max Bet` in Settings caps any single position regardless of what Kelly computes.
+**Paper vs live gap (remaining):** In paper mode, TP and SL are poll-based checks every 5 minutes. In live mode, TP should be a resting limit sell order placed at entry, and SL should be a market sell when triggered.
 
 ---
 
