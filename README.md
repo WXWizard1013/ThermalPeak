@@ -186,4 +186,4 @@ Access is locked to a private whitelist — this bot is not open to the public. 
 
 ---
 
-*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion.*
+*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion ⚠️*
