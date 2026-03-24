@@ -63,3 +63,9 @@
 * **Protection sub-menu removed** — `sl_min_floor`, `slippage_pct`, `tp_high`, and `high_conf_stars` removed from Settings. Risk sub-menu simplified to three controls: Take Profit (base), Stop Loss, Max Daily Drawdown.
 * **Positions button added to signal alerts** — signal notification now includes a `📋 Pos` button for immediate position check after a signal fires.
 * **Loading messages auto-delete** — `/vol` and `/signals` loading indicators now delete themselves after the result is sent, keeping the chat clean.
+* Ghost bid filter — UPnL now uses Polymarket's own rule: if spread > $0.10, fall back to mid instead of the stale bid. Eliminates false -52% UPnL on thin markets like Chongqing (ask 17¢ / bid 5¢ = 12¢ spread).
+Entry price uses ask — trade log now records the YES ask at signal time via /price?side=BUY instead of mid. Real cost basis from day one. Falls back to mid silently if the fetch fails.
+True mid from /price endpoint — (bestAsk + bestBid) / 2 now computed from dedicated /price?side=BUY and /price?side=SELL calls instead of the non-existent bestAsk/bestBid fields on the /markets/{cid} token object (those fields don't exist in the API).
+Ask/bid swap guard — if /price returns BUY lower than SELL (inverted), the code detects and corrects before displaying or using for UPnL.
+Now shows 1 decimal place — current probability displays as 11.0% instead of 11% across position card, /pos list, /pnl UPnL caption, and TP/SL alerts. Polymarket rounds to whole numbers; the bot now shows the real mid with one decimal. Entry stays as whole number (fixed recorded value).
+Position Refresh triggers immediate TP/SL check — already in v2.4 but missed the changelog entry.
