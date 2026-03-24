@@ -61,10 +61,11 @@ The model accounts for:
 
 **Portfolio**
 - Paper trading with full trade log (CSV or PostgreSQL)
-- Live unrealised PnL on open positions — uses **bestBid** (real exit value) not mid price, so UPnL reflects what you'd actually receive selling right now
-- Position detail shows `YES ask / bid · NO ask · mid` — all four relevant prices at a glance
-- True mid computed as `(bestAsk + bestBid) / 2`, not `token.price`
+- Live unrealised PnL on open positions — uses **bestBid** when spread ≤ $0.10 (Polymarket's own rule); falls back to mid on thin markets where the bid is stale. Prevents ghost bids distorting UPnL on low-liquidity buckets
+- Position detail shows `YES ask X¢ / bid X¢ · NO ask X¢ / bid X¢` — all four relevant prices at a glance
+- True mid computed as `(bestAsk + bestBid) / 2` via dedicated `/price` endpoint calls — the `/markets/{cid}` token object does not carry bid/ask fields
 - Auto-resolve: checks pending positions against live prices for TP/SL hits every 5 minutes
+- Current probability ("Now") displayed with 1 decimal place — `11.0%` instead of `11%`, matching the true mid rather than Polymarket's rounded header display
 - Sharpe ratio calculated across resolved trades (shows N/A until 10+ resolved)
 - PnL card generated automatically on `/pnl` — 1280×680 HD dark card, thermal gradient, all key stats, centered pill
 
@@ -185,4 +186,4 @@ Access is locked to a private whitelist — this bot is not open to the public. 
 
 ---
 
-*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion ⚠️*
+*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion.*
