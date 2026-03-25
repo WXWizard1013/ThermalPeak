@@ -72,7 +72,7 @@
 * **1 decimal place on live probability** — `Now` displays as `11.0%` instead of `11%` across position card, `/pos` list, `/pnl` caption, and TP/SL alerts. Entry remains whole number.
 * **Refresh triggers immediate TP/SL check** — was in v2.4 but missed the changelog.
 
-### v2.4 — Additional Fixes & Signal Quality (Mar 25, 2026)
+### v2.4.2 — Additional Fixes & Signal Quality (Mar 25, 2026)
 * **fetch_live_yes now uses /price endpoint** — TP/SL checks no longer use `token.price` from `/markets/{cid}` which was returning near-ask values on thin markets and causing false TP triggers (e.g. Chongqing TP fired at 17.76¢ when market never exceeded 14%). Now uses true mid `(ask+bid)/2` via dedicated `/price` calls, matching the position display logic.
 * **bestAsk removed from all Gamma fallbacks** — `bestAsk` was used as a fallback in both `fetch_live_yes` and `fetch_live_prices`. It returns the ask price, not mid, causing false TP fires on thin markets. Gamma fallback now uses `outcomePrices` only.
 * **SL loss capped at threshold** — stop loss PnL is now capped at the configured threshold (30%) regardless of where price is when the poll fires. Previously, if price crashed from 13% to 6.5% between polls, the recorded loss used the actual poll price (50% loss) instead of the threshold (30%). Simulates real limit stop order execution accurately.
