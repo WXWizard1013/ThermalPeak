@@ -63,6 +63,7 @@ The model accounts for:
 - Paper trading with full trade log (CSV or PostgreSQL)
 - Live unrealised PnL on open positions — uses **bestBid** when spread ≤ $0.10 (Polymarket's own rule); falls back to mid on thin markets where the bid is stale. Prevents ghost bids distorting UPnL on low-liquidity buckets
 - **4¢ spread filter at entry** — signals are rejected if `ask - bid > 4¢` at the moment of evaluation. Blocks thin markets (e.g. Chongqing 12¢ spread) before a position is opened. Grounded in Polymarket's own liquidity rewards qualifying range
+- **14% minimum entry price floor** — signals are rejected when `yes_price < 0.14`. Based on 48-trade segmented analysis: sub-14% entries produced 29% win rate (-$12 PnL); entries above 18% produced 47% win rate (+$10 PnL). Raised from previous 10% floor on Mar 27, 2026
 - Position detail shows `YES ask X¢ / bid X¢ · NO ask X¢ / bid X¢` — all four relevant prices at a glance
 - True mid computed as `(bestAsk + bestBid) / 2` via dedicated `/price` endpoint calls — the `/markets/{cid}` token object does not carry bid/ask fields
 - Auto-resolve: checks pending positions against live prices for TP/SL hits every 5 minutes
@@ -117,7 +118,7 @@ Every position uses three distinct prices. Understanding which price is used whe
 | Resolves YES | $1.00 | oracle settles | +$33.29 profit |
 | Resolves NO | $0.00 | oracle settles | −$9.38 loss |
 
-**SL loss is capped at threshold** — if price crashes past the 30% SL level between polls, the recorded loss is capped at 30% × kelly (not the actual poll price). Simulates a real limit stop order that fills at the threshold, not wherever price happens to be 3 minutes later.
+**SL loss is capped at threshold** — if price crashes past the 30% SL level between polls, the recorded loss is capped at 30% × kelly (not the actual poll price). Simulates a real limit stop order that fills at the threshold, not wherever price happens to be 3 minutes later. SL alert shows `Exit: 12.6%` — the actual simulated exit price — not the noisy poll price.
 
 **Breakeven stop** — once UPnL reaches +30% AND spread ≤ 5¢, the SL automatically moves to entry price. Spread gate prevents noise triggering on thin markets. SL alert shows `breakeven (N★)` to distinguish from a standard `30% (N★)` stop.
 
@@ -191,4 +192,4 @@ Access is locked to a private whitelist — this bot is not open to the public. 
 
 ---
 
-*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion.*
+*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion ⚠️*
