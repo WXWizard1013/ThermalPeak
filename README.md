@@ -120,7 +120,7 @@ Every position uses three distinct prices. Understanding which price is used whe
 
 **SL loss is capped at threshold** — if price crashes past the 30% SL level between polls, the recorded loss is capped at 30% × kelly (not the actual poll price). Simulates a real limit stop order that fills at the threshold, not wherever price happens to be 3 minutes later. SL alert shows `Exit: 12.6%` — the actual simulated exit price — not the noisy poll price.
 
-**Breakeven stop** — once UPnL reaches +30% AND spread ≤ 5¢, the SL automatically moves to entry price. Spread gate prevents noise triggering on thin markets. SL alert shows `breakeven (N★)` to distinguish from a standard `30% (N★)` stop.
+**Profit floor stop** — once UPnL reaches +30% AND spread ≤ 5¢, the SL automatically moves to `entry × (1 + profit_floor)`. Default floor is +5%, configurable in Settings → Risk. If price reverses from +30% and drops below the floor, the position exits as a TP with the floor profit locked in. Alert shows `PROFIT FLOOR DALLAS YES 80-81°F` to distinguish from a regular TP or SL.
 
 **Paper vs live gap (remaining):** In paper mode, TP and SL are poll-based checks every 3 minutes. In live mode, TP should be a resting limit sell order placed at entry, and SL should be a market sell when triggered.
 
@@ -161,6 +161,7 @@ All adjustable via `/settings` in Telegram.
 | :--- | :--- | :--- |
 | Vol filter (per bucket) | $1K | Minimum volume on the specific bucket being signalled |
 | Edge threshold | 8% | Minimum edge (fair − market) to fire a signal |
+| Min entry price | 14% | Minimum market price for YES entries; NO entries blocked when YES > (100−floor)% |
 | Scan interval | 1h | How often CLOB prices are refreshed |
 
 **Sizing**
@@ -176,6 +177,7 @@ All adjustable via `/settings` in Telegram.
 | :--- | :--- | :--- |
 | Take profit (base) | 60% | Base TP — scaled by confidence × hours-to-close matrix at entry |
 | Stop loss | 30% | Close position when down this % from entry (poll-based) |
+| Profit floor | 5% | Minimum profit locked in when position reaches +30% gain and reverses |
 | Max daily drawdown | 10% | Pause signals if today's losses hit this % of equity |
 
 ---
@@ -192,4 +194,4 @@ Access is locked to a private whitelist — this bot is not open to the public. 
 
 ---
 
-*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion ⚠️*
+*⚠️ Not financial advice. Prediction markets are volatile and algorithmic trading carries real financial risk. Use at your own discretion.*
