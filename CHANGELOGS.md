@@ -86,3 +86,17 @@
   * After 10 SL losses on any city, bot sends an alert: *"10 losses in [City] — exclude city?"* with **Yes / No** inline buttons. Repeats every 10 losses.
   * `/exclude` command shows all excluded cities (tap to re-include) and a grid of active cities to manually add.
   * Exclusions are persisted to the `excluded_cities` PostgreSQL table and loaded on startup. Excluded cities are skipped entirely during signal scanning.
+
+### v2.5 — Multi-Model Consensus, Bayesian Sizing & Trailing SL (Apr 1, 2026)
+* **Multi-model consensus gate** — ECMWF (`ecmwf_ifs025`) and ICON (`icon_global`) fetched via Open-Meteo every 4 hours alongside GFS. Signals only fire when the spread between models is ≤ 1.5°C. When models disagree beyond that threshold, the city is skipped regardless of edge. Eliminates the single-model blind spots that caused systematic losses in volatile regimes.
+  * ECMWF-dominant weighting globally (60/40 ECMWF/ICON blend).
+  * ICON boosted for EU and MENA cities (Warsaw, Milan, Munich, Madrid, Ankara, Tel Aviv, Istanbul, Moscow) where ICON has better mesoscale resolution.
+* **Bayesian Kelly sizing** — per-city win rate is now estimated using a Beta(3,3) prior blended with observed trade history. Cities with fewer than ~6 trades use a conservative prior near 50%; cities with track records pull toward their actual win rate. A `BAYES_WR_FLOOR` of 35% prevents Kelly from going negative on losing streaks. The Bayesian multiplier is displayed on every signal card.
+* **City win rates pre-loaded at startup** — `get_pnl_summary()` is called during `scan_loop()` initialisation so `city_accuracy` is populated from the database before the first scan. Previously, Bayesian Kelly used uninformed priors until `/pnl` or `/accu` was manually called after each deploy.
+* **Three-tier trailing stop-loss** — positions now ratchet up their floor as they move in favour:
+  * Tier 1: +15% gain → floor locks at +5% (never give back more than 10pp from here)
+  * Tier 2: +35% gain → floor locks at +20%
+  * Fast-move: spread ≤ 5¢ and position up → existing `be_floor` fires first to protect thin-spread positions
+  * Trail state (`initial` / `tier1` / `tier2`) persisted to the database and survives restarts.
+* **Per-city max 2 open positions** — scanner skips a city if it already has 2 PENDING positions. Prevents over-concentration in a single market during volatile periods.
+* **City detail enhanced** — `/cities` and position detail now shows ECMWF + ICON forecasts for EU cities, NOAA for US cities, and ECMWF for all others, alongside the existing GFS figure.
