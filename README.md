@@ -8,22 +8,25 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
-[![v2.5](https://img.shields.io/badge/version-v2.5-orange.svg)]()
+[![v2.6](https://img.shields.io/badge/version-v2.6-orange.svg)]()
 
 </div>
 
-ThermalPeak is a Telegram-based trading bot that finds edges in Polymarket's daily temperature markets. It pulls live order book prices from Polymarket's CLOB API, runs them against a multi-model weather consensus (GFS, ECMWF, ICON, NOAA), and fires a signal only when all three models agree and the math says the market is wrong. Everything — signals, positions, risk settings, city exclusions — is managed from your Telegram chat.
+ThermalPeak is a Telegram-based trading bot that finds edges in Polymarket's daily temperature markets. It pulls live order book prices from Polymarket's CLOB API, runs them against a 5-model weather consensus (GFS, ECMWF, ICON, UKMET, GEM), and fires a signal only when all available models agree and the math says the market is wrong. Everything — signals, positions, risk settings, city exclusions — is managed from your Telegram chat.
 
 ---
 
 ## How It Works
 
-Each day Polymarket lists markets like *"Will the highest temperature in Tokyo exceed 19°C on April 1?"*. ThermalPeak discovers every active D+1 market across 38 cities, prices each bucket using a normal distribution over a blended multi-model forecast, and compares that fair value against the live market price. When the edge clears the threshold, the consensus gate passes, and Kelly sizing produces a bet above the minimum, it fires a signal.
+Each day Polymarket lists markets like *"Will the highest temperature in Tokyo exceed 19°C on April 1?"*. ThermalPeak discovers every active D+1 market across 38 cities, prices each bucket using a normal distribution over a blended 5-model forecast, and compares that fair value against the live market price. When the edge clears the threshold, the consensus gate passes, the entry window is correct, and Kelly sizing produces a bet above the minimum, it fires a signal.
 
 The model accounts for:
-- **Multi-model consensus** — ECMWF, ICON, and GFS must agree within 1.5°C before a signal can fire. Model disagreement = uncertainty = skip.
-- **Per-city σ calibration** — GFS uncertainty is not the same everywhere. Stable tropical cities (Singapore, Lucknow) use a tight 1.0–1.2°C σ. Orographic and coastal cities (LA, Seattle, Denver) use a wide 2.8–3.0°C σ that makes it harder to generate false signals in markets where GFS systematically underperforms.
-- **Bayesian Kelly sizing** — position sizes are scaled by a Beta-prior estimate of each city's win rate. New cities start conservative; cities with track records pull toward their actual performance. The multiplier is shown on every signal card.
+- **5-model consensus** — GFS, ECMWF, ICON, UKMET, and Canadian GEM must agree within 1.5°C before a signal can fire. Model disagreement = uncertainty = skip.
+- **Entry timing gate** — signals only fire in the 20–48h window before resolution. This is the sweet spot confirmed by top Polymarket weather traders.
+- **Temperature laddering** — the primary signal plus the best adjacent bucket (≥8% edge) are opened simultaneously with edge-weighted Kelly. Based on neobrother's strategy.
+- **Dynamic Kelly by model count** — 5 models agreeing = full Kelly. 4 models = 80%. Rewards high-conviction signals.
+- **Per-city σ calibration** — GFS uncertainty is not the same everywhere. Stable tropical cities (Singapore, Lucknow) use a tight 1.0–1.2°C σ. Orographic and coastal cities (LA, Seattle, Denver) use a wide 2.8–3.0°C σ that makes it harder to generate false signals.
+- **Bayesian Kelly sizing** — position sizes are scaled by a Beta-prior estimate of each city's win rate. New cities start conservative; cities with track records pull toward their actual performance.
 - **Station bias** — LaGuardia runs warmer than city-center GFS, London City Airport runs warmer than Heathrow, etc. Each city has a hardcoded correction.
 - **Fee drag** — Polymarket charges ~2% per trade. Kelly sizing and EV calculations factor this in.
 - **Spread filter** — signals only fire when the YES ask/bid spread is ≤ 4¢.
@@ -35,26 +38,34 @@ The model accounts for:
 **Market Discovery**
 - Discovers all active D+1 temperature markets across 38 cities at startup and on a configurable scan interval
 - Fetches live prices directly from Polymarket's CLOB order book (not cached Gamma data)
-- On-demand full refresh (GFS + ECMWF + ICON + NOAA + CLOB) triggered by `/signals` — no stale data
+- On-demand full refresh (all models + CLOB) triggered by `/signals` — no stale data
 
 **Forecasting**
 - GFS via Open-Meteo — baseline 48h forecast for all cities
 - ECMWF (`ecmwf_ifs025`) via Open-Meteo — global high-resolution model, refreshed every 4h
 - ICON (`icon_global`) via Open-Meteo — European mesoscale model, boosted for EU/MENA cities
+- UKMET (`ukmo_seamless`) via Open-Meteo — UK Met Office global model
+- Canadian GEM (`gem_seamless`) via Open-Meteo — North American mesoscale correction
 - NOAA NWS — human-edited corrections for US cities, blended 55/45 with GFS
 - AVWX METAR/TAF — aviation weather for short-range confirmation near resolution
 - Per-city σ calibration — tiered GFS uncertainty by climate type and terrain complexity
 - norm.cdf scoring — fair probability calculated over the bucket range, not a single threshold
 
 **Signal Quality Filters**
-- Multi-model consensus gate — ECMWF/ICON spread must be ≤ 1.5°C or city is skipped
+- 5-model consensus gate — all available models must agree within 1.5°C or city is skipped
+- Entry timing gate — signals only fire 20–48h before resolution
 - Edge threshold: 10% minimum
 - Edge cap at 13% — very high edge = GFS vs market disagreement = GFS is probably wrong
-- Minimum entry floor at 14% — market prices below this had 17–27% win rate
+- Minimum entry floor at 14% — market prices below this had 17–27% win rate historically
 - Spread liquidity filter — ≤ 4¢ ask/bid spread required
-- One signal per city per scan (highest-edge bucket only)
 - Max 2 open positions per city — prevents concentration during volatile periods
 - City exclusion system — cities with 10+ SL losses trigger an exclusion prompt
+
+**Signal Sizing**
+- 2-bucket temperature ladder — primary + adjacent bucket (≥8% edge), edge-weighted Kelly split
+- Dynamic Kelly scaling — scales 30–100% based on number of models agreeing
+- Bayesian Kelly multiplier — per-city Beta posterior win rate scales position size
+- Hard max bet cap and minimum bet floor
 
 **Take Profit & Stop Loss**
 - TP price is fixed at entry as an absolute level: `entry × (1 + tp_threshold)`
@@ -64,21 +75,13 @@ The model accounts for:
 - High-confidence signals use a separate higher TP tier
 
 **Risk Management**
-- Bayesian Kelly Criterion sizing — Beta(3,3) prior blended with per-city trade history
-- Hard max bet cap and minimum bet floor
-- Stop-loss monitoring — poll-based % drop check every 30 minutes
-- SL min floor — absolute ¢ floor that must also be breached before SL fires
 - Daily drawdown limit — scanning pauses automatically if you breach your equity limit
-
-**City Exclusion System**
-- After 10 SL losses on any city, bot fires an alert with Yes/No inline buttons to exclude
-- `/exclude` command — view and manage excluded cities at any time
-- Exclusions persist across restarts via PostgreSQL
+- SL min floor — absolute ¢ floor that must also be breached before SL fires
 
 **Portfolio**
 - Paper trading with full trade log (CSV or PostgreSQL)
 - Live unrealised PnL on open positions via CLOB price refresh
-- Auto-resolve: checks pending positions against live prices every 30 minutes
+- Auto-resolve: checks pending positions against live prices every 3 minutes
 - Sharpe ratio calculated across resolved trades
 
 ---
@@ -104,6 +107,7 @@ The model accounts for:
 | `/resolveall` | Force-check all pending positions against live prices |
 | `/resetlog` | Wipe the trade log and start fresh |
 | `/pause` / `/cont` | Pause and resume the scan loop |
+| `/random` | AI-generated weather fact (tap 🔀 for a new one) |
 | `/version` | Changelog and build info |
 | `/help` | Full command list |
 
@@ -119,7 +123,7 @@ All adjustable via `/settings` in Telegram.
 | :--- | :--- | :--- |
 | Volume filter | $10K | Minimum bucket volume to include in scans |
 | Edge threshold | 10% | Minimum edge (fair − market) to fire a signal |
-| Min entry price | 14% | Minimum market price to enter (below this = low liquidity signal noise) |
+| Min entry price | 14% | Minimum market price to enter |
 | Scan interval | 1h | How often CLOB prices are refreshed |
 
 **Sizing**
@@ -134,17 +138,9 @@ All adjustable via `/settings` in Telegram.
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
 | Take profit | 60% | Close when up this % from entry — stored as fixed limit price per trade |
-| TP high conf | 80% | TP threshold for signals rated high-conf stars or above |
 | Stop loss | 30% | Close position when down this % from entry |
-| High conf stars | 8★ | Star rating that triggers the higher TP |
-| Slippage tolerance | 2% | Deducted from fair value before edge calc |
+| Profit floor | +5% | Minimum profit locked in when a position hits +30% gain |
 | Max daily drawdown | 10% | Pause signals if today's losses hit this % of equity |
-
-**Protection**
-
-| Setting | Default | What it controls |
-| :--- | :--- | :--- |
-| SL min floor | $5 | Minimum absolute $ drop before SL fires. Both the % threshold AND this floor must be breached. Set to 0 to disable. |
 
 ---
 
@@ -158,18 +154,18 @@ New York (KLGA), London (EGLC), Tokyo (RJTT), Shanghai (ZSPD), Singapore (WSSS),
 
 ## Performance (Paper Trading)
 
-As of Apr 1, 2026 — 48 trades logged since Mar 27, 2026:
+As of Apr 3, 2026 — 68 trades logged since Mar 27, 2026:
 
 | Metric | Value |
 | :--- | :--- |
-| Resolved trades | 44 |
-| Win rate | ~46% |
-| Net PnL | +$43.06 |
+| Resolved trades | 64 |
+| Win rate | ~39% |
+| Net PnL | +$38.17 |
 | Avg edge | 10.1% |
 | Breakeven WR | 31.9% |
 
-Strong performers: Chicago, Atlanta, New York, Lucknow, Tokyo, Ankara.
-Weak performers: LA, Seattle, Denver, Austin, Houston (systematic GFS coastal/orographic bias — wide σ assigned, exclusion system active).
+Strong performers: Chicago (83% WR), New York (50% WR), Lucknow, Tokyo, Ankara, Taipei.
+Weak performers: LA, Seattle, Denver, Houston (systematic GFS coastal/orographic bias — wide σ assigned, consensus gate filters heavily).
 
 ---
 
