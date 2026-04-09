@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
-[![v2.6.1](https://img.shields.io/badge/version-v2.6.1-orange.svg)]()
+[![v2.6.2](https://img.shields.io/badge/version-v2.6.2-orange.svg)]()
 
 </div>
 
@@ -32,8 +32,9 @@ The model accounts for:
 
 **Market Discovery**
 - Discovers all active D+1 temperature markets across 44 cities at startup and on a configurable scan interval
+- Slug fetch covers all 44 cities as fallback when Polymarket's tag API returns no results
 - Fetches live prices directly from Polymarket's CLOB order book (not cached Gamma data)
-- On-demand full refresh (GFS + NOAA + CLOB) triggered by `/signals` — no stale data
+- On-demand full refresh (GFS + NOAA + CLOB) triggered by `/signals`
 
 **Forecasting**
 - GFS via Open-Meteo — baseline 48h forecast for all cities
@@ -42,36 +43,33 @@ The model accounts for:
 - AVWX METAR/TAF — aviation weather for short-range confirmation near resolution
 - ICON boost for European cities — ICON weighted higher over European terrain
 - Per-city σ calibration — tiered GFS uncertainty by climate type and terrain complexity
-- norm.cdf scoring — fair probability calculated over the bucket range, not a single threshold
+- norm.cdf scoring — fair probability calculated over the bucket range
 
 **Signal Quality Filters**
-- Edge threshold: 10% minimum (raised from 8% based on 41-trade analysis)
+- Edge threshold: 10% minimum
 - Edge cap at 13% — very high edge = GFS vs market disagreement = GFS is probably wrong
 - Minimum entry floor at 14% — market prices below this had 17–27% win rate
 - Spread liquidity filter — ≤ 4¢ ask/bid spread required
+- Multi-model consensus gate — 3 of 5 models must agree within 2.5°C spread
 - One signal per city per scan (highest-edge bucket only)
 - City exclusion system — cities with 10+ SL losses trigger an exclusion prompt
 
 **Take Profit & Stop Loss**
-- TP price is fixed at entry as an absolute level: `entry × (1 + tp_threshold)`
-- Stored per-trade in the database — survives bot restarts
-- Profit floor protection — prevents profitable positions from reversing into full SL losses
+- TP price fixed at entry as an absolute level, stored per-trade — survives bot restarts
+- Three-tier trailing stop: +15% gain locks floor at +5%, +35% locks at +20%
+- Profit floor protection — prevents profitable positions reversing into full SL losses
 - High-confidence signals use a separate higher TP tier
 
 **Risk Management**
-- Kelly Criterion position sizing with configurable fraction and max bet
-- Stop-loss monitoring — poll-based % drop check every 30 minutes
-- SL min floor — absolute ¢ floor that must also be breached before SL fires
-- Daily drawdown limit — scanning pauses automatically if you breach your equity limit
-
-**City Exclusion System**
-- After 10 SL losses on any city, bot fires an alert with Yes/No inline buttons to exclude
-- `/exclude` command — view and manage excluded cities at any time
-- Exclusions persist across restarts via PostgreSQL
+- Kelly Criterion sizing with configurable fraction and max bet
+- Bayesian Kelly with Beta(3,3) prior and 35% WR floor
+- Stop-loss: poll-based % drop check every 30 minutes
+- Daily drawdown limit — scanning pauses automatically if equity limit is breached
+- `/abort` emergency kill-switch — stops scanning, resolves all open positions, blocks new trades
 
 **Portfolio**
 - Paper trading with full trade log (CSV or PostgreSQL)
-- Live unrealised PnL on open positions via CLOB price refresh
+- Live unrealised PnL on open positions via CLOB refresh
 - Auto-resolve: checks pending positions against live prices every 30 minutes
 - Sharpe ratio calculated across resolved trades
 
@@ -84,7 +82,7 @@ The model accounts for:
 | `/signals` | Full refresh then scan all 44 cities for edges right now |
 | `/vol` | Live volume table sorted by liquidity (paginated, 20 per page) |
 | `/brief` | Cities where GFS disagrees with the market favourite by 3°C+ |
-| `/cities` | Browse all active D+1 markets, odds, METAR, and GFS forecast (paginated) |
+| `/cities` | Browse all active D+1 markets, odds, METAR, and GFS forecast |
 | `/pnl` | PnL card as image + unrealised PnL on open positions |
 | `/pos` | Open positions with live prices and UPnL |
 | `/log` | Recent trade history |
@@ -94,10 +92,10 @@ The model accounts for:
 | `/status` | Bot health, last scan time, active markets, current settings |
 | `/drift` | Check if GFS forecasts have shifted since last run |
 | `/accu` | Win/loss breakdown by city |
-| `/summ` | Daily summary — signals fired, win rate, net PnL |
+| `/summ` | Today's summary — signals fired, win rate, net PnL (00:00–23:59 UTC) |
 | `/resolveall` | Force-check all pending positions against live prices |
+| `/abort` | 🚨 Emergency stop — halt scanning, resolve all positions, block new trades |
 | `/resetlog` | Wipe the trade log and start fresh |
-| `/export` | Download full trade log as CSV |
 | `/pause` / `/cont` | Pause and resume the scan loop |
 | `/version` | Changelog and build info |
 | `/help` | Full command list |
@@ -112,9 +110,9 @@ All adjustable via `/settings` in Telegram.
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| Volume filter | $10K | Minimum bucket volume to include in scans |
+| Volume filter | $1,000 | Minimum bucket volume to include in scans |
 | Edge threshold | 10% | Minimum edge (fair − market) to fire a signal |
-| Min entry price | 14% | Minimum market price to enter (below this = low liquidity signal noise) |
+| Min entry price | 14% | Minimum market price to enter |
 | Scan interval | 1h | How often CLOB prices are refreshed |
 
 **Sizing**
@@ -122,15 +120,15 @@ All adjustable via `/settings` in Telegram.
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
 | Kelly fraction | 15% | Fraction of Kelly formula applied to bet sizing |
-| Max bet | $25 | Hard cap per position |
+| Max bet | $100 | Hard cap per position |
 
 **Risk**
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| Take profit | 60% | Close when up this % from entry — stored as fixed limit price per trade |
-| TP high conf | 80% | TP threshold for signals rated high-conf stars or above |
-| Stop loss | 30% | Close position when down this % from entry |
+| Take profit | 60% | Close when up this % from entry |
+| TP high conf | 80% | TP threshold for high-confidence signals |
+| Stop loss | 30% | Close when down this % from entry |
 | High conf stars | 8★ | Star rating that triggers the higher TP |
 | Slippage tolerance | 2% | Deducted from fair value before edge calc |
 | Max daily drawdown | 10% | Pause signals if today's losses hit this % of equity |
@@ -139,7 +137,7 @@ All adjustable via `/settings` in Telegram.
 
 | Setting | Default | What it controls |
 | :--- | :--- | :--- |
-| SL min floor | $5 | Minimum absolute $ drop before SL fires. Both the % threshold AND this floor must be breached. Set to 0 to disable. |
+| SL min floor | $5 | Minimum absolute $ drop before SL fires. Both % threshold AND floor must be breached. Set to 0 to disable. |
 
 ---
 
@@ -153,16 +151,15 @@ New York (KLGA), London (EGLC), Tokyo (RJTT), Shanghai (ZSPD), Singapore (WSSS),
 
 ## Performance (Paper Trading)
 
-As of Apr 3, 2026 — data collection phase, targeting 100 resolved trades before model changes:
+As of Apr 9, 2026 — data collection phase, targeting 200 resolved trades before live capital deployment:
 
 | Metric | Value |
 | :--- | :--- |
-| Resolved trades | ~22 |
-| Win rate | ~36% overall |
-| Avg edge | ~10% |
+| Resolved trades | ~87 |
+| Win rate | ~43% |
+| Net PnL | +$87.51 |
+| Avg edge | ~10.5% |
 | Breakeven WR | ~32% |
-
-City performance splits clearly by geography. Chicago, Atlanta, New York, Lucknow performing well. LA, Seattle, Dallas, Houston, Austin, Denver at 0% WR — attributed to GFS coastal/orographic bias (West Coast) and heat island miscalibration (Sun Belt). Wide σ assigned to these cities; exclusion system active. Model changes gated on 100 resolved trades.
 
 ---
 
