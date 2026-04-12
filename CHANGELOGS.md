@@ -1,5 +1,29 @@
 ## Release History
 
+### v2.7 — Station Audit, Per-Model Gate & 47-City Coverage (Apr 12, 2026)
+
+**Signal Architecture**
+- **Per-model min-probability gate** — replaces binary bucket voting. Each NWP model independently computes `_bucket_prob(model_temp, sigma, lo, hi)`. Signal fires only if `min(all model probs) ≥ MIN_PROB_THRESHOLD (0.55)`. A single dissenting model with <55% probability blocks the trade regardless of consensus.
+- **Regional wx hard veto** — NOAA/BMKG/MSS/CWA probability fed directly into the min-prob gate as a named model. If the human-edited national forecast gives <50% to a bucket, the gate blocks automatically.
+- **CWA (Taiwan) integrated** — Central Weather Administration added for Taipei, analogous to NOAA for US cities. Endpoint: `opendata.cwa.gov.tw` Songshan District (松山區) forecast. 6h cache.
+
+**Station Corrections (full crosscheck — all 47 cities vs live Polymarket market rules)**
+- **Denver** — KDEN → **KBKF** (Buckley Space Force Base, Aurora CO). Coords corrected from (39.86, -104.67) to (39.717, -104.752). Polymarket confirmed via market rules Apr 2026.
+- **Moscow** — duplicate dict entry removed. UUEE (Sheremetyevo) was silently overwriting UUWW (Vnukovo) due to second dict key. Single UUWW entry retained.
+- **Taipei** — RCTP → **RCSS** (Taipei Songshan Airport) for April 2026+ markets. Coords corrected from (25.08, 121.23) to (25.069, 121.553). `CITY_BIAS_C` updated 0.0 → +1.0°C (urban basin vs coastal Taoyuan plain). CWA veto enabled.
+
+**City Expansion — 44 → 47**
+- **Cape Town** added — FACT (Cape Town Intl, Matroosfontein). σ=2.0°C, bias=-0.5°C.
+- **Jeddah** added — OEJN (King Abdulaziz Intl). σ=1.5°C, bias=0.0°C.
+- **Lagos** added — DNMM (Murtala Muhammed Intl). σ=1.2°C, bias=+0.5°C.
+- All three confirmed via Polymarket market rules (Wunderground resolution source).
+
+**UI**
+- `/cities` — 3-per-row buttons (was 2). "Or type the city name directly." added. "🆕 New cities:" section on page 1 lists cities in event_cache not in KNOWN_CITIES. Cold-start fallback trimmed to confirmed-active cities only (removed Dubai, Sydney, Berlin, Mumbai, Bangkok, Boston, Phoenix, Changsha).
+- `/vol` — PAGE_SIZE changed to 18 (clean 6×3 grid).
+- **Arrows** — `bucket_with_c()` now renders "or higher" → ↑ and "or below" → ↓ globally (signals, `/pos`, `/log`, `/cities`, `/vol` favourite, all scan output).
+- Slug 0-stubs log spam suppressed — was 516 lines/40min at day boundary.
+
 ### v1.0 — Initial Alpha (Mar 16, 2026)
 * Proof-of-concept. Four cities (New York, London, Singapore, Shanghai), basic GFS scanning, text-only Telegram alerts, manual CSV logging, trades resolved by hand.
 
