@@ -1,28 +1,78 @@
 ## Release History
 
+### v2.7.2 — New Cities (Guangzhou, Karachi, Manila), Resolution Notes & Spread Bug Fix (Apr 15, 2026)
+
+**City Expansion — 47 → 50**
+- **Guangzhou** added — ZGGG (Baiyun Intl). σ=1.6°C, bias=+0.5°C (industrial UHI, station north of city). Confirmed via Polymarket market rules Apr 2026.
+- **Karachi** added — OPKC (Jinnah Intl). σ=1.5°C, bias=0.0°C (coastal; Arabian Sea sea breeze already captured by GFS grid). Confirmed Apr 2026.
+- **Manila** added — RPLL (Ninoy Aquino Intl). σ=1.2°C, bias=+0.3°C (Metro Manila UHI, near city center). Confirmed Apr 2026.
+- All three were already appearing in the market scanner (tag fetch finding them) but had no ICAO/coords, so `city_cache` had no entry → `find_opportunities()` skipped them silently.
+
+**Resolution Station Notes — new `CITY_RESOLUTION_NOTE` dict**
+- Every `/cities` detail card now shows `📍 [station description]`, `σ`, and `bias` directly below the city header.
+- 13 cities with explicit notes covering non-obvious stations (KLGA not KJFK, EGLC not EGLL, KBKF not KDEN, HKO Observatory for HK, RCSS for Taipei, etc.).
+- All other cities auto-display as `[ICAO] — Wunderground resolution station`.
+
+**Bug Fix — Spread Check "?" in Logs**
+- The spread-check log was printing `?` as the city name because the bucket dict (built at line 892) never carried a `city_key` field.
+- `bucket.get("city_key", bucket.get("city","?"))` always fell through to `"?"`.
+- Fixed: spread check now uses the outer `for city_key, info in event_cache.items()` loop variable directly.
+
+**`normalize_city` aliases added**
+- `"canton"` → `"guangzhou"`, `"guangzhou city"` → `"guangzhou"`
+- `"karachi city"` → `"karachi"`
+- `"metro manila"` → `"manila"`, `"ncr"` → `"manila"`, `"manila city"` → `"manila"`
+
+**`NEW_CITIES`** updated to `{"guangzhou", "karachi", "manila"}` — 🆕 section in `/cities` reflects current version additions.
+
+---
+
+### v2.7.1 — Relative Min-Prob Gate Fix, Consensus Gate 2.5→3.5°C & Trade Log Reset (Apr 13, 2026)
+
+**Critical Gate Fix — Absolute → Relative Min-Prob Threshold**
+- v2.7 shipped with `MIN_PROB_THRESHOLD = 0.55` (absolute probability). This was physically impossible for any 1°C bucket at σ=2.0°C (max possible P ≈ 19.7%). Every 1°C bucket was being vetoed unconditionally.
+- Fixed: gate now uses `MIN_PROB_RATIO = 0.65` — each model must give ≥65% of the *maximum possible* probability for that bucket width/sigma. Normalises correctly across 1°C buckets (max ~20%) and open-ended buckets (max ~70%).
+- A second bug: the regional wx veto kept an absolute `0.40` floor, which blocked all US 2°F buckets (max P ≈ 28%). Fixed to relative `REGIONAL_VETO_RATIO = 0.40` against regional max, not absolute probability.
+
+**Consensus Gate Raised 2.5 → 3.5°C**
+- Spring model transition globally pushing normal mid-latitude spread to 3.0–4.0°C. At 2.5°C, 77% of cities were blocked before reaching the min-prob gate.
+- Cities with genuinely chaotic spread (Seoul 9.3°C, Jeddah 9.1°C, Munich 6.9°C) still blocked at 3.5°C. 14 additional cities now pass to the min-prob gate for per-model validation.
+
+**`/resetlog` PostgreSQL fix**
+- `/resetlog` was only deleting the CSV file. PostgreSQL trade records survived the reset.
+- Fixed: `DELETE FROM trades` executed before CSV removal. Trade count correctly resets to 0.
+
+**Trade Log Reset — Clean Dataset**
+- Trade log reset to 0 on Apr 13 after gate calibration. Previous 87-trade pre-calibration dataset archived.
+- First live signal under new architecture: Hong Kong 28°C YES at 23.5¢ (Apr 13, 2026).
+
+---
+
 ### v2.7 — Station Audit, Per-Model Gate & 47-City Coverage (Apr 12, 2026)
 
 **Signal Architecture**
-- **Per-model min-probability gate** — replaces binary bucket voting. Each NWP model independently computes `_bucket_prob(model_temp, sigma, lo, hi)`. Signal fires only if `min(all model probs) ≥ MIN_PROB_THRESHOLD (0.55)`. A single dissenting model with <55% probability blocks the trade regardless of consensus.
-- **Regional wx hard veto** — NOAA/BMKG/MSS/CWA probability fed directly into the min-prob gate as a named model. If the human-edited national forecast gives <50% to a bucket, the gate blocks automatically.
-- **CWA (Taiwan) integrated** — Central Weather Administration added for Taipei, analogous to NOAA for US cities. Endpoint: `opendata.cwa.gov.tw` Songshan District (松山區) forecast. 6h cache.
+- **Per-model min-probability gate** — replaces binary bucket voting (3-of-5 majority). Each NWP model independently computes `_bucket_prob(model_temp, sigma, lo, hi)`. Gate blocks if any model gives less than the relative threshold fraction of the max possible probability for that bucket (see v2.7.1 for calibration fix).
+- **Regional wx hard veto** — NOAA/BMKG/MSS/CWA probability fed directly into the min-prob gate as a named model. Human-edited national forecast pointing away from the bucket = block.
+- **CWA (Taiwan) integrated** — Central Weather Administration added for Taipei. Endpoint: `opendata.cwa.gov.tw` Songshan District forecast. 6h cache. Graceful skip when `CWA_API_TOKEN` env var not set.
 
 **Station Corrections (full crosscheck — all 47 cities vs live Polymarket market rules)**
-- **Denver** — KDEN → **KBKF** (Buckley Space Force Base, Aurora CO). Coords corrected from (39.86, -104.67) to (39.717, -104.752). Polymarket confirmed via market rules Apr 2026.
-- **Moscow** — duplicate dict entry removed. UUEE (Sheremetyevo) was silently overwriting UUWW (Vnukovo) due to second dict key. Single UUWW entry retained.
-- **Taipei** — RCTP → **RCSS** (Taipei Songshan Airport) for April 2026+ markets. Coords corrected from (25.08, 121.23) to (25.069, 121.553). `CITY_BIAS_C` updated 0.0 → +1.0°C (urban basin vs coastal Taoyuan plain). CWA veto enabled.
+- **Denver** — KDEN → **KBKF** (Buckley Space Force Base, Aurora CO). Coords corrected from (39.86, −104.67) to (39.717, −104.752). ~18km SE of KDEN; different microclimate.
+- **Moscow** — duplicate dict entry removed. UUEE (Sheremetyevo) was silently overwriting UUWW (Vnukovo) due to Python dict key collision. Single UUWW entry retained.
+- **Taipei** — RCTP → **RCSS** (Taipei Songshan Airport) for April 2026+ markets. Coords corrected to (25.069, 121.553). `CITY_BIAS_C` 0.0 → +1.0°C (urban basin vs coastal Taoyuan plain).
 
 **City Expansion — 44 → 47**
-- **Cape Town** added — FACT (Cape Town Intl, Matroosfontein). σ=2.0°C, bias=-0.5°C.
-- **Jeddah** added — OEJN (King Abdulaziz Intl). σ=1.5°C, bias=0.0°C.
-- **Lagos** added — DNMM (Murtala Muhammed Intl). σ=1.2°C, bias=+0.5°C.
-- All three confirmed via Polymarket market rules (Wunderground resolution source).
+- **Cape Town** — FACT (Cape Town Intl). σ=2.0°C, bias=−0.5°C.
+- **Jeddah** — OEJN (King Abdulaziz Intl). σ=1.5°C, bias=0.0°C.
+- **Lagos** — DNMM (Murtala Muhammed Intl). σ=1.2°C, bias=+0.5°C.
 
 **UI**
-- `/cities` — 3-per-row buttons (was 2). "Or type the city name directly." added. "🆕 New cities:" section on page 1 lists cities in event_cache not in KNOWN_CITIES. Cold-start fallback trimmed to confirmed-active cities only (removed Dubai, Sydney, Berlin, Mumbai, Bangkok, Boston, Phoenix, Changsha).
-- `/vol` — PAGE_SIZE changed to 18 (clean 6×3 grid).
-- **Arrows** — `bucket_with_c()` now renders "or higher" → ↑ and "or below" → ↓ globally (signals, `/pos`, `/log`, `/cities`, `/vol` favourite, all scan output).
-- Slug 0-stubs log spam suppressed — was 516 lines/40min at day boundary.
+- `/cities` — 3-per-row buttons. "Or type the city name directly." added. 🆕 New cities section on page 1. Cold-start fallback trimmed to confirmed-active cities (removed Dubai, Sydney, Berlin, Mumbai, Bangkok, Boston, Phoenix, Changsha).
+- `/vol` — PAGE_SIZE 20→18 (clean 6×3 grid).
+- **Arrows** — `bucket_with_c()` renders "or higher"→↑ and "or below"→↓ globally across all views.
+- Slug 0-stubs log spam suppressed (was 516 lines/40min at day boundary).
+- `NEW_CITIES` constant introduced — new city detection no longer breaks when cities are added to `KNOWN_CITIES`.
+
+
 
 ### v1.0 — Initial Alpha (Mar 16, 2026)
 * Proof-of-concept. Four cities (New York, London, Singapore, Shanghai), basic GFS scanning, text-only Telegram alerts, manual CSV logging, trades resolved by hand.
