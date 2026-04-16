@@ -1,157 +1,231 @@
-## Release History
+# Changelog
 
-### v2.7.2 — New Cities (Guangzhou, Karachi, Manila), Resolution Notes & Spread Bug Fix (Apr 15, 2026)
+## v2.7.3 - UI Cleanup, Regional Source Expansion, Debug Tooling and History Export (Apr 16, 2026)
 
-**City Expansion — 47 → 50**
-- **Guangzhou** added — ZGGG (Baiyun Intl). σ=1.6°C, bias=+0.5°C (industrial UHI, station north of city). Confirmed via Polymarket market rules Apr 2026.
-- **Karachi** added — OPKC (Jinnah Intl). σ=1.5°C, bias=0.0°C (coastal; Arabian Sea sea breeze already captured by GFS grid). Confirmed Apr 2026.
-- **Manila** added — RPLL (Ninoy Aquino Intl). σ=1.2°C, bias=+0.3°C (Metro Manila UHI, near city center). Confirmed Apr 2026.
-- All three were already appearing in the market scanner (tag fetch finding them) but had no ICAO/coords, so `city_cache` had no entry → `find_opportunities()` skipped them silently.
+### Cards and UI
+- City detail cards were cleaned up into a compact station-first format.
+- City cards now start from the real station line and remove the old city header, UTC line, and other clutter.
+- Position detail cards were simplified to the trading mechanics only:
+  direction or bucket, market price, trade, volume, resolves, and logged time.
+- `/status` now supports an optional top image panel using `thermal-map-50.png`.
 
-**Resolution Station Notes — new `CITY_RESOLUTION_NOTE` dict**
-- Every `/cities` detail card now shows `📍 [station description]`, `σ`, and `bias` directly below the city header.
-- 13 cities with explicit notes covering non-obvious stations (KLGA not KJFK, EGLC not EGLL, KBKF not KDEN, HKO Observatory for HK, RCSS for Taipei, etc.).
-- All other cities auto-display as `[ICAO] — Wunderground resolution station`.
+### Commands and versioning
+- `/random` was removed.
+- `/help` no longer shows `/random`.
+- Visible version strings were aligned to `v2.7.3`.
+- `/version` now uses the correct `Thermal✹Peak` mark.
+- `/debug city` was added as a private source-diagnostics view.
 
-**Bug Fix — Spread Check "?" in Logs**
-- The spread-check log was printing `?` as the city name because the bucket dict (built at line 892) never carried a `city_key` field.
-- `bucket.get("city_key", bucket.get("city","?"))` always fell through to `"?"`.
-- Fixed: spread check now uses the outer `for city_key, info in event_cache.items()` loop variable directly.
+### Forecast sources
+- `HKO` added as the regional source for Hong Kong.
+- `SMG` added for Guangzhou and Shenzhen as a soft regional source.
+- `CWA` parsing and fallback handling for Taipei were fixed.
+- Moscow METAR/TAF fallback was restored through AviationWeather, preventing the old `N/A` regression.
 
-**`normalize_city` aliases added**
-- `"canton"` → `"guangzhou"`, `"guangzhou city"` → `"guangzhou"`
-- `"karachi city"` → `"karachi"`
-- `"metro manila"` → `"manila"`, `"ncr"` → `"manila"`, `"manila city"` → `"manila"`
+### Signal flow and diagnostics
+- `/signals` on-demand refresh now pulls the fuller forecast stack:
+  markets, GFS, regional sources, multimodel forecasts, and TAF.
+- `/signals` formatting now reflects the real stack used by the bot:
+  raw GFS, seed forecast, regional source, TAF max, final blended forecast, expected error, and source stack.
+- `/debug` now shows:
+  trade status, action hint, seed forecast, final forecast, expected error, consensus, and cache ages.
 
-**`NEW_CITIES`** updated to `{"guangzhou", "karachi", "manila"}` — 🆕 section in `/cities` reflects current version additions.
-
----
-
-### v2.7.1 — Relative Min-Prob Gate Fix, Consensus Gate 2.5→3.5°C & Trade Log Reset (Apr 13, 2026)
-
-**Critical Gate Fix — Absolute → Relative Min-Prob Threshold**
-- v2.7 shipped with `MIN_PROB_THRESHOLD = 0.55` (absolute probability). This was physically impossible for any 1°C bucket at σ=2.0°C (max possible P ≈ 19.7%). Every 1°C bucket was being vetoed unconditionally.
-- Fixed: gate now uses `MIN_PROB_RATIO = 0.65` — each model must give ≥65% of the *maximum possible* probability for that bucket width/sigma. Normalises correctly across 1°C buckets (max ~20%) and open-ended buckets (max ~70%).
-- A second bug: the regional wx veto kept an absolute `0.40` floor, which blocked all US 2°F buckets (max P ≈ 28%). Fixed to relative `REGIONAL_VETO_RATIO = 0.40` against regional max, not absolute probability.
-
-**Consensus Gate Raised 2.5 → 3.5°C**
-- Spring model transition globally pushing normal mid-latitude spread to 3.0–4.0°C. At 2.5°C, 77% of cities were blocked before reaching the min-prob gate.
-- Cities with genuinely chaotic spread (Seoul 9.3°C, Jeddah 9.1°C, Munich 6.9°C) still blocked at 3.5°C. 14 additional cities now pass to the min-prob gate for per-model validation.
-
-**`/resetlog` PostgreSQL fix**
-- `/resetlog` was only deleting the CSV file. PostgreSQL trade records survived the reset.
-- Fixed: `DELETE FROM trades` executed before CSV removal. Trade count correctly resets to 0.
-
-**Trade Log Reset — Clean Dataset**
-- Trade log reset to 0 on Apr 13 after gate calibration. Previous 87-trade pre-calibration dataset archived.
-- First live signal under new architecture: Hong Kong 28°C YES at 23.5¢ (Apr 13, 2026).
+### Data and exports
+- Added a dedicated `forecast_history` dataset for calibration snapshots.
+- The bot now logs one forecast-history row per `city + temp_date`.
+- `/export` now sends two CSV exports when available:
+  `thermal_peak_trades.csv` and `thermal_peak_history.csv`.
+- CSV fallback support was added for forecast history alongside PostgreSQL support.
 
 ---
 
-### v2.7 — Station Audit, Per-Model Gate & 47-City Coverage (Apr 12, 2026)
+## v2.7.2 - New Cities, Resolution Notes and Spread Bug Fix (Apr 15, 2026)
 
-**Signal Architecture**
-- **Per-model min-probability gate** — replaces binary bucket voting (3-of-5 majority). Each NWP model independently computes `_bucket_prob(model_temp, sigma, lo, hi)`. Gate blocks if any model gives less than the relative threshold fraction of the max possible probability for that bucket (see v2.7.1 for calibration fix).
-- **Regional wx hard veto** — NOAA/BMKG/MSS/CWA probability fed directly into the min-prob gate as a named model. Human-edited national forecast pointing away from the bucket = block.
-- **CWA (Taiwan) integrated** — Central Weather Administration added for Taipei. Endpoint: `opendata.cwa.gov.tw` Songshan District forecast. 6h cache. Graceful skip when `CWA_API_TOKEN` env var not set.
+### City expansion
+- Coverage increased from 47 to 50 cities.
+- Added:
+  `Guangzhou (ZGGG)`, `Karachi (OPKC)`, and `Manila (RPLL)`.
+- `NEW_CITIES` was updated so the `/cities` page correctly highlights new additions.
 
-**Station Corrections (full crosscheck — all 47 cities vs live Polymarket market rules)**
-- **Denver** — KDEN → **KBKF** (Buckley Space Force Base, Aurora CO). Coords corrected from (39.86, −104.67) to (39.717, −104.752). ~18km SE of KDEN; different microclimate.
-- **Moscow** — duplicate dict entry removed. UUEE (Sheremetyevo) was silently overwriting UUWW (Vnukovo) due to Python dict key collision. Single UUWW entry retained.
-- **Taipei** — RCTP → **RCSS** (Taipei Songshan Airport) for April 2026+ markets. Coords corrected to (25.069, 121.553). `CITY_BIAS_C` 0.0 → +1.0°C (urban basin vs coastal Taoyuan plain).
+### Resolution notes
+- Added `CITY_RESOLUTION_NOTE` for non-obvious stations.
+- `/cities` detail cards began showing clearer resolution-station context.
 
-**City Expansion — 44 → 47**
-- **Cape Town** — FACT (Cape Town Intl). σ=2.0°C, bias=−0.5°C.
-- **Jeddah** — OEJN (King Abdulaziz Intl). σ=1.5°C, bias=0.0°C.
-- **Lagos** — DNMM (Murtala Muhammed Intl). σ=1.2°C, bias=+0.5°C.
+### Fixes
+- Fixed the spread-check city label bug that logged `?` instead of the real city.
+- Added normalize aliases for Guangzhou, Karachi, and Manila variants.
 
-**UI**
-- `/cities` — 3-per-row buttons. "Or type the city name directly." added. 🆕 New cities section on page 1. Cold-start fallback trimmed to confirmed-active cities (removed Dubai, Sydney, Berlin, Mumbai, Bangkok, Boston, Phoenix, Changsha).
-- `/vol` — PAGE_SIZE 20→18 (clean 6×3 grid).
-- **Arrows** — `bucket_with_c()` renders "or higher"→↑ and "or below"→↓ globally across all views.
-- Slug 0-stubs log spam suppressed (was 516 lines/40min at day boundary).
-- `NEW_CITIES` constant introduced — new city detection no longer breaks when cities are added to `KNOWN_CITIES`.
+---
 
+## v2.7.1 - Relative Min-Prob Fix, Wider Consensus Gate and Trade Reset Fix (Apr 13, 2026)
 
+### Probability gate fix
+- Replaced the broken absolute min-probability threshold with a relative threshold based on each bucket's maximum possible probability.
+- Fixed the regional veto to use a relative test instead of an absolute one that was incorrectly blocking narrow buckets.
 
-### v1.0 — Initial Alpha (Mar 16, 2026)
-* Proof-of-concept. Four cities (New York, London, Singapore, Shanghai), basic GFS scanning, text-only Telegram alerts, manual CSV logging, trades resolved by hand.
+### Consensus gate
+- Raised the consensus gate from `2.5°C` to `3.5°C` to avoid overblocking during spring-transition spread.
 
-### v2.0 — Major Overhaul (Mar 18, 2026)
-* **City coverage** expanded from 4 to 30 cities worldwide.
-* **Full Telegram UI** — replaced plain-text alerts with a proper inline keyboard interface for navigating markets, managing positions, and adjusting settings.
-* **Automated trade management** — auto Take-Profit (+60%) and Stop-Loss (-40%) introduced.
-* **Live CLOB pricing** — switched from cached Gamma data to Polymarket's live order book.
-* **Rebuilt probability engine** — norm.cdf replaces the old sigmoid scorer. Factors in 2% fee drag, applies edge caps, weights TAF near expiry.
-* **PostgreSQL backend** — persistent trade logging with async connection pooling. CSV fallback.
+### Logging
+- Fixed `/resetlog` so PostgreSQL trade data is cleared along with CSV data.
+- Reset the trade dataset after recalibration.
 
-### v2.1 — Analytics & Maintenance (Mar 19, 2026)
-* `/accu` — per-city accuracy tracking. `/summ` — daily PnL summary. `/resolveall` — force-sweep pending positions. `/resetlog` — wipe trade history.
+---
 
-### v2.2 — Stability (Mar 20, 2026)
-* Refined data pipelines and API request handling. Minor UI navigation improvements.
+## v2.7 - Station Audit, Per-Model Gate and 47-City Coverage (Apr 12, 2026)
 
-### v2.3 — Settings, Risk, Card & 30-City Coverage (Mar 21–22, 2026)
-* **Pure inline keyboard UI** — bottom keyboard stripped entirely.
-* **Overhauled /settings** — conversational parameter input with `/cancel` support.
-* **Risk management suite** — TP (standard + high-conf tier), SL, slippage tolerance, max daily drawdown.
-* **Shareable PnL card** — auto-generated HD PNG on every `/pnl`.
-* **30-city coverage** — fixed market discovery for Chinese mainland markets.
-* **Station bias corrections** — HKO, KLGA, EGLC, ZSPD, CWA 46692.
-* **NOAA NWS blending** — 55/45 with GFS for US cities.
-* **Hours-ahead gate** — 16–72h window replaces strict UTC date matching.
+### Signal architecture
+- Added the per-model minimum-probability gate.
+- Added stronger regional forecast integration into the gate logic.
+- Integrated `CWA` for Taipei.
 
-### v2.3.1 — Risk Engine, UI Polish & 35-City Coverage (Mar 23, 2026)
-* **35-city coverage** — San Francisco (KSFO) and Austin (KAUS) added.
-* **Limit-order TP** — fixed at entry, stored per-trade, survives restarts.
-* **SL min floor** — absolute ¢ floor alongside % SL. Default 5¢.
-* **Duplicate signal suppression** — auto-scan stays silent if no new positions opened.
-* **Settings → Reset to Default** button.
+### Station corrections
+- Denver corrected from `KDEN` to `KBKF`.
+- Moscow duplicate station entry removed, keeping `UUWW`.
+- Taipei updated from `RCTP` to `RCSS` for newer markets.
 
-### v2.4 — Signal Quality, ICAO Fixes & 38-City Coverage (Mar 24–27, 2026)
-* **38-city coverage** — Istanbul (LTFM), Moscow (UUEE), Mexico City (MMMX).
-* **ICAO corrections** — KJFK → KLGA, EGLL → EGLC, ZSSS → ZSPD.
-* **Edge cap at 13%** — very high edge = GFS wrong, not market.
-* **Min entry floor 14%** — below this had 17–27% win rate.
-* **Per-bucket volume filter**, **spread filter** (≤ 4¢), **NO bet guards** (75–92% YES), **fair value ceiling 80%**, **city deduplication**.
+### City expansion
+- Added:
+  `Cape Town`, `Jeddah`, and `Lagos`.
 
-### v2.4.1 — Profit Floor & Reliability (Mar 27, 2026)
-* **Profit floor protection**, **TP cap fix**, **SL bypass fix**, **`/pos` command**.
+### UI
+- Improved `/cities`, `/vol`, and bucket formatting.
+- Added `NEW_CITIES` support.
 
-### v2.4.2 — Position Detail & UPnL (Mar 28, 2026)
-* **Individual position detail card** — bid/ask, Kelly, UPnL, GFS, NOAA, METAR, Polymarket link.
-* **UPnL mid-price fix**. **Resolve/Remove buttons**. **Positions pagination** at 8 per page.
+---
 
-### v2.4.3 — Backtest Notebook v1.0 (Mar 28–29, 2026)
-* **Backtest notebook** (`thermalpeak_backtest.ipynb`) — Colab parameter sweeps against real resolved trades.
+## v2.6.2 - Emergency Abort, Daily Summary Fix and UI Fixes (Apr 9, 2026)
 
-### v2.4.4 — UI Polish & City Expansion (Mar 29–30, 2026)
-* **`bucket_with_c()`** — inline °C next to °F outcomes. **`/vol` and `/cities` pagination** at 20 per page.
+- Added `/abort` as a two-step emergency stop and resolve-all flow.
+- Added the abort button to `/start`.
+- Fixed `/summ` to scope correctly to the current UTC day.
+- Hardened market discovery for active markets.
+- Fixed the `× Close` button handler.
+- Fixed the `/vol` Celsius-strip regex.
+- Standardized the GFS schedule display in UTC.
+- Fixed `/cities` fallback so it showed the full city set instead of only a partial list.
 
-### v2.4.4.1 — Signal Quality & City Risk Management (Apr 1, 2026)
-* **Edge threshold raised to 10%**.
-* **Per-city σ calibration** — tight (1.0–1.5°C) for stable tropical, default (1.8–2.2°C) mid-latitude, wide (2.5–3.0°C) orographic/coastal.
-* **City exclusion system** — `/exclude` + automated 10-SL-loss alert. Persisted via PostgreSQL.
+---
 
-### v2.5 — Multi-Model Consensus & Dead Zone Pause (Apr 2, 2026)
-* **5-model gate** — 3 of 5 required (GFS, ECMWF, ICON, UKMET, GEM).
-* **ICON boost** for European cities. **Dead zone pause** 22:00–02:00 UTC. **`/random`** command.
+## v2.6.1 - Full Resolution Station Audit (Apr 3, 2026)
 
-### v2.6 — 44-City Expansion & Station Audit (Apr 3, 2026)
-* **44-city coverage** — Busan (RKPK), Panama City (MPMG), Amsterdam (EHAM), Kuala Lumpur (WMKK), Helsinki (EFHK), Jakarta (WIHH).
-* ICON boost extended to Amsterdam and Helsinki. Per-city σ for new cities. Slug fetch fallback.
+- Moscow corrected from `UUEE` to `UUWW`.
+- Houston corrected from `KIAH` to `KHOU`.
+- Taipei coordinates updated.
+- Jakarta and Panama City station mappings verified.
 
-### v2.6.1 — Full Resolution Station Audit (Apr 3, 2026)
-* **Station corrections** — Moscow UUEE → UUWW (Vnukovo), Houston KIAH → KHOU (Hobby), Taipei coords → RCTP. Jakarta WIHH and Panama City MPMG verified.
+---
 
-### v2.6.2 — Emergency Abort, Daily Summary Fix & UI Fixes (Apr 9, 2026)
-* **`/abort` emergency command** — two-step confirmed kill-switch. Stops scanning, resolves all open positions at live price, blocks new trades. `/cont` resumes.
-* **`🚨 Abort` on `/start`** — one tap from home screen with `× Close` beside it.
-* **`/summ` day-scoped** — queries only today's trades (00:00–23:59 UTC), not all-time.
-* **Consensus gate raised 1.5 → 2.5°C** — April spring transition was blocking every city at 1.5°C.
-* **Market discovery hardened** — slug fetch now covers all 44 cities (was 7). Removed `closed=True` filter incorrectly blocking active markets. `process_event` no longer requires `active=True`.
-* **`× Close` button fixed** — was missing its handler; now correctly deletes the message on all views.
-* **`/vol` °C strip fixed** — regex now correctly removes `(X.X°C)` suffix including the degree symbol.
-* **GFS Drift alert bold** — auto-drift now sends with `parse_mode=Markdown`.
-* **GFS schedule in UTC** — replaced WIB times with `00:00 · 06:00 · 12:00 · 18:00 UTC`.
-* **`/cities` fallback fixed** — showed only 12 cities when event cache was empty; now shows all 44.
+## v2.6 - 44-City Expansion and Station Audit (Apr 3, 2026)
+
+- Added:
+  `Busan`, `Panama City`, `Amsterdam`, `Kuala Lumpur`, `Helsinki`, and `Jakarta`.
+- Extended model weighting and slug-fetch fallback coverage.
+
+---
+
+## v2.5 - Multi-Model Consensus and Dead-Zone Pause (Apr 2, 2026)
+
+- Added the 5-model consensus gate:
+  `GFS`, `ECMWF`, `ICON`, `UKMET`, `GEM`.
+- Added ICON boost behavior for Europe.
+- Added the 22:00-02:00 UTC dead-zone pause.
+- Added `/random` at the time; later removed in `v2.7.3`.
+
+---
+
+## v2.4.4.1 - Signal Quality and City Risk Management (Apr 1, 2026)
+
+- Raised edge threshold to `10%`.
+- Added per-city sigma calibration.
+- Added the city exclusion system and `/exclude`.
+
+---
+
+## v2.4.4 - UI Polish and City Expansion (Mar 29-30, 2026)
+
+- Improved `bucket_with_c()`.
+- Added pagination to `/vol` and `/cities`.
+
+---
+
+## v2.4.3 - Backtest Notebook v1.0 (Mar 28-29, 2026)
+
+- Added the backtest notebook for parameter sweeps against resolved trades.
+
+---
+
+## v2.4.2 - Position Detail and UPnL (Mar 28, 2026)
+
+- Added individual position detail cards.
+- Improved UPnL handling.
+- Added position actions and pagination.
+
+---
+
+## v2.4.1 - Profit Floor and Reliability (Mar 27, 2026)
+
+- Added profit-floor protection.
+- Fixed TP cap and SL bypass behavior.
+- Added `/pos`.
+
+---
+
+## v2.4 - Signal Quality, ICAO Fixes and 38-City Coverage (Mar 24-27, 2026)
+
+- Expanded to 38 cities.
+- Corrected several major ICAO mappings.
+- Added edge cap, entry floor, per-bucket volume filtering, spread filter, NO-bet guards, fair-value ceiling, and city deduplication.
+
+---
+
+## v2.3.1 - Risk Engine, UI Polish and 35-City Coverage (Mar 23, 2026)
+
+- Expanded to 35 cities.
+- Added limit-order TP persistence.
+- Added SL minimum-floor behavior.
+- Added duplicate-signal suppression.
+- Added reset-to-default in settings.
+
+---
+
+## v2.3 - Settings, Risk, Cards and 30-City Coverage (Mar 21-22, 2026)
+
+- Rebuilt the bot around inline-keyboard navigation.
+- Overhauled `/settings`.
+- Added the risk-management suite.
+- Added the shareable PnL card.
+- Expanded to 30-city coverage.
+
+---
+
+## v2.2 - Stability (Mar 20, 2026)
+
+- Refined data pipelines and request handling.
+- Improved navigation and general reliability.
+
+---
+
+## v2.1 - Analytics and Maintenance (Mar 19, 2026)
+
+- Added `/accu`, `/summ`, `/resolveall`, and `/resetlog`.
+
+---
+
+## v2.0 - Major Overhaul (Mar 18, 2026)
+
+- Expanded city coverage from 4 to 30.
+- Added the Telegram UI.
+- Added automated trade management.
+- Switched to live Polymarket CLOB pricing.
+- Rebuilt the probability engine around `norm.cdf`.
+- Added PostgreSQL support with CSV fallback.
+
+---
+
+## v1.0 - Initial Alpha (Mar 16, 2026)
+
+- Four-city proof of concept.
+- Basic GFS scanning.
+- Text-only Telegram alerts.
+- Manual CSV logging and manual trade resolution.
