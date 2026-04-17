@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.7.3 - UI Cleanup, Regional Source Expansion, Debug Tooling and History Export (Apr 17, 2026)
+## v2.7.3 - UI Cleanup, Regional Source Expansion, Calibration Sync and Debug Tooling (Apr 17-18, 2026)
 
 ### Cards and UI
 - City detail cards were cleaned up into a compact station-first format.
@@ -9,14 +9,16 @@
   direction or bucket, market price, trade, volume, resolves, and logged time.
 - `/status` now supports an optional top image panel using `thermal-map-50.png`.
 - `/start` now uses the slimmer home screen:
-  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Pause`, `Help`, `Settings`, and `Abort`.
+  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Sync`, `Pause`, `Help`, `Settings`, and `Abort`.
 - `/start` keeps emoji on inline buttons, while Telegram slash-command menu descriptions are plain text only.
+- `/start` no longer shows `Status`, `Log`, or `Positions` inline.
 
 ### Commands and versioning
 - `/random` was removed.
 - `/brief` was removed.
 - `/drift` was removed, including the old auto-sent drift alerts.
 - `/help` no longer shows `/random`, `/brief`, or `/drift`.
+- `/sync` was added as a manual forecast-history refresh command.
 - Visible version strings were aligned to `v2.7.3`.
 - `/version` now uses the correct `Thermal✹Peak` mark.
 - `/debug city` was added as a private source-diagnostics view.
@@ -40,10 +42,17 @@
 - The bot now logs one forecast-history row per `city + temp_date`.
 - Trade-to-history marking now safely upserts if the history row was not present yet at trade time.
 - Added repair passes for older missed history trade marks.
-- Added resolved-market backfill for:
-  `actual_temp_c`, `actual_source`, `resolved_at`, `error_final_c`, `error_gfs_c`, `error_regional_c`, and `error_taf_c`.
-- Resolved actuals currently come from the winning Polymarket bucket:
-  midpoint for bounded buckets, floor/ceiling for open-ended buckets, and no error scoring when the exact value is still unknown.
+- Forecast-history resolution sync now runs against all rows, not just traded rows.
+- Added resolution-state fields:
+  `resolution_status`, `resolved_bucket`, `resolved_bucket_source`, and `resolved_at`.
+- Added calibration fields:
+  `actual_temp_c`, `actual_source`, `actual_temp_quality`,
+  `actual_temp_bucket_derived_c`, `actual_temp_bucket_method`,
+  `calibration_eligible`, `calibration_note`,
+  `error_final_c`, `error_gfs_c`, `error_regional_c`, and `error_taf_c`.
+- Winning-bucket actuals are now labeled by quality:
+  `bucket_exact`, `bucket_derived_bounded`, or `bucket_derived_open`.
+- `/sync` forces a manual forecast-history refresh pass before export when needed.
 - `/export` now sends two CSV exports when available:
   `thermal_peak_trades.csv` and `thermal_peak_history.csv`.
 - CSV fallback support was added for forecast history alongside PostgreSQL support.

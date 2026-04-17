@@ -91,6 +91,7 @@ ThermalPeak does not fire on raw edge alone.
 | `/export` | Downloads both trade CSV and forecast-history CSV |
 | `/status` | Bot health, scan status, pricing/model summary |
 | `/settings` | Signal, sizing, and risk controls |
+| `/sync` | Refresh forecast-history resolution and calibration data |
 | `/debug city` | Source diagnostics for one city |
 | `/exclude` | Manage excluded cities |
 | `/accu` | City-level accuracy / win-loss view |
@@ -105,9 +106,10 @@ ThermalPeak does not fire on raw edge alone.
 ## Telegram UI
 
 - `/start` shows a reduced inline home screen:
-  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Pause`, `Help`, `Settings`, and `Abort`.
+  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Sync`, `Pause`, `Help`, `Settings`, and `Abort`.
 - The `/start` inline buttons keep emoji labels for quick scanning.
 - The Telegram slash-command menu uses plain-text descriptions with no emoji.
+- `Status`, `Log`, `Positions`, `Brief`, and `Drift` are intentionally not shown on the `/start` page.
 - Legacy `/brief` and `/drift` commands are removed from both the command menu and bot flows.
 
 ## Storage and Exports
@@ -124,9 +126,21 @@ ThermalPeak stores two different datasets:
 **Forecast history**
 - One snapshot per `city + temp_date`
 - GFS, consensus, regional, TAF, and final blended forecast
-- Bias, sigma, model spread, model count, source stack
+- Bias, sigma, model spread, model count, source stack, and `hours_left`
 - Whether the city/date produced a trade
-- Resolved-market backfill for `actual_temp_c`, `actual_source`, `resolved_at`, and model error fields when outcome data is available
+- Resolution-state tracking for all rows, not just traded rows:
+  `resolution_status`, `resolved_bucket`, `resolved_bucket_source`, and `resolved_at`
+- Calibration fields:
+  `actual_temp_c`, `actual_source`, `actual_temp_quality`,
+  `actual_temp_bucket_derived_c`, `actual_temp_bucket_method`,
+  `calibration_eligible`, `calibration_note`, and model error fields
+
+`/sync` forces a full forecast-history refresh pass so you can update proposed/final outcomes and calibration rows before exporting.
+
+For calibration, the cleanest subset is:
+- `resolution_status = final`
+- `calibration_eligible = 1`
+- `actual_temp_quality = bucket_exact`
 
 `/export` sends:
 - `thermal_peak_trades.csv`
@@ -167,9 +181,12 @@ New York, London, Singapore, Shanghai, Buenos Aires, Miami, Chicago, Ankara, Los
 - `/debug city` diagnostics
 - Dual-file `/export`
 - Forecast-history logging for calibration
-- Forecast-history trade-mark repair and resolved-actual backfill
+- Forecast-history trade-mark repair and full-row resolution sync
+- `/sync` command for manual forecast-history refresh before export
+- Proposed/final resolution tracking with winning-bucket metadata
+- Calibration-quality fields for exact vs bucket-derived actuals
 - `/signals` display refreshed to show GFS, seed, regional, TAF, final forecast, and expected error
-- `/start` home screen simplified, with `/brief` and `/drift` removed
+- `/start` home screen simplified, with `Sync` added and `/brief` and `/drift` removed
 
 ## Status
 
