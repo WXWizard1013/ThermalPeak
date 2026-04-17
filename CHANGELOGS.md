@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.7.3 - UI Cleanup, Regional Source Expansion, Debug Tooling and History Export (Apr 16, 2026)
+## v2.7.3 - UI Cleanup, Regional Source Expansion, Debug Tooling and History Export (Apr 17, 2026)
 
 ### Cards and UI
 - City detail cards were cleaned up into a compact station-first format.
@@ -8,10 +8,15 @@
 - Position detail cards were simplified to the trading mechanics only:
   direction or bucket, market price, trade, volume, resolves, and logged time.
 - `/status` now supports an optional top image panel using `thermal-map-50.png`.
+- `/start` now uses the slimmer home screen:
+  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Pause`, `Help`, `Settings`, and `Abort`.
+- `/start` keeps emoji on inline buttons, while Telegram slash-command menu descriptions are plain text only.
 
 ### Commands and versioning
 - `/random` was removed.
-- `/help` no longer shows `/random`.
+- `/brief` was removed.
+- `/drift` was removed, including the old auto-sent drift alerts.
+- `/help` no longer shows `/random`, `/brief`, or `/drift`.
 - Visible version strings were aligned to `v2.7.3`.
 - `/version` now uses the correct `Thermal✹Peak` mark.
 - `/debug city` was added as a private source-diagnostics view.
@@ -33,6 +38,12 @@
 ### Data and exports
 - Added a dedicated `forecast_history` dataset for calibration snapshots.
 - The bot now logs one forecast-history row per `city + temp_date`.
+- Trade-to-history marking now safely upserts if the history row was not present yet at trade time.
+- Added repair passes for older missed history trade marks.
+- Added resolved-market backfill for:
+  `actual_temp_c`, `actual_source`, `resolved_at`, `error_final_c`, `error_gfs_c`, `error_regional_c`, and `error_taf_c`.
+- Resolved actuals currently come from the winning Polymarket bucket:
+  midpoint for bounded buckets, floor/ceiling for open-ended buckets, and no error scoring when the exact value is still unknown.
 - `/export` now sends two CSV exports when available:
   `thermal_peak_trades.csv` and `thermal_peak_history.csv`.
 - CSV fallback support was added for forecast history alongside PostgreSQL support.

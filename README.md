@@ -84,7 +84,6 @@ ThermalPeak does not fire on raw edge alone.
 | :--- | :--- |
 | `/signals` | Full refresh, then scans for current edge signals |
 | `/vol` | D+1 bucket volume table by city |
-| `/brief` | GFS vs market-favorite disagreement view |
 | `/cities` | Browse active cities, forecasts, and bucket odds |
 | `/pnl` | Paper-trade summary card + unrealized PnL |
 | `/pos` | Open positions |
@@ -94,7 +93,6 @@ ThermalPeak does not fire on raw edge alone.
 | `/settings` | Signal, sizing, and risk controls |
 | `/debug city` | Source diagnostics for one city |
 | `/exclude` | Manage excluded cities |
-| `/drift` | GFS drift check |
 | `/accu` | City-level accuracy / win-loss view |
 | `/summ` | Daily summary |
 | `/version` | Version notes |
@@ -103,6 +101,14 @@ ThermalPeak does not fire on raw edge alone.
 | `/resolveall` | Force-check all pending positions |
 | `/resetlog` | Reset the trade log |
 | `/abort` | Emergency stop and resolve-all flow |
+
+## Telegram UI
+
+- `/start` shows a reduced inline home screen:
+  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Pause`, `Help`, `Settings`, and `Abort`.
+- The `/start` inline buttons keep emoji labels for quick scanning.
+- The Telegram slash-command menu uses plain-text descriptions with no emoji.
+- Legacy `/brief` and `/drift` commands are removed from both the command menu and bot flows.
 
 ## Storage and Exports
 
@@ -120,6 +126,7 @@ ThermalPeak stores two different datasets:
 - GFS, consensus, regional, TAF, and final blended forecast
 - Bias, sigma, model spread, model count, source stack
 - Whether the city/date produced a trade
+- Resolved-market backfill for `actual_temp_c`, `actual_source`, `resolved_at`, and model error fields when outcome data is available
 
 `/export` sends:
 - `thermal_peak_trades.csv`
@@ -160,7 +167,9 @@ New York, London, Singapore, Shanghai, Buenos Aires, Miami, Chicago, Ankara, Los
 - `/debug city` diagnostics
 - Dual-file `/export`
 - Forecast-history logging for calibration
+- Forecast-history trade-mark repair and resolved-actual backfill
 - `/signals` display refreshed to show GFS, seed, regional, TAF, final forecast, and expected error
+- `/start` home screen simplified, with `/brief` and `/drift` removed
 
 ## Status
 
