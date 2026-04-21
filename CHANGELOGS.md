@@ -1,5 +1,47 @@
 # Changelog
 
+## v2.9 - Live Audit, Directional Entry Repair and Richer Execution Truth (Apr 20-21, 2026)
+
+### Paper book correctness
+- Fixed paper `NO` entries so the stored buy price reflects the actual `NO` side instead of the mirrored `YES` price.
+- Added normalization for older open paper `NO` rows and recalculated their TP targets from the corrected directional entry.
+- `/pos` now renders tracked price flow as `YES x% → y%` or `NO x% → y%` so the displayed side matches the actual trade.
+
+### Live execution truth
+- Live execution rows now retain richer fill metadata:
+  entry fill counts, fill timestamps, cost basis, closed proceeds, realized PnL, and realized return.
+- Live review, live summary, and recent closed views now use those richer metrics instead of thinner placeholder values.
+- Flatten and reconcile paths now persist closer-to-exchange truth for tracked live positions and closes.
+
+### Operator tooling
+- Added `/liveaudit` as a compact operator report for live readiness, queue state, attention-needed rows, open exposure, and recent realized closes.
+- `/wallet`, `/orders`, `/pnl`, and live detail views now surface live readiness and execution state more clearly.
+- Visible strings, cards, and startup logs were aligned to `v2.9`.
+
+---
+
+## v2.8 - Mode-Aware Dashboard, Unified Controls and Execution Journal (Apr 19-20, 2026)
+
+### Modes and dashboard
+- Reworked the bot around `Paper`, `Shadow`, and `Live` execution modes.
+- `/start` now opens a mode chooser, and `/home` / `/pnl` render mode-aware dashboard cards.
+- Restored the exact slogan copy:
+  `Scan the heat, trade the peak.`
+
+### Shadow and live workflow
+- Added a shadow/live execution journal with review rows, queue states, tracked live orders, and tracked live positions.
+- Added `/wallet` for live readiness, allowance, balance, and signer checks.
+- Added `/orders` for the shadow/live queue and detailed execution review screens.
+- Fixed callback parsing for refs like `id:3`, which stopped shadow-to-live review actions from breaking on colon-containing refs.
+
+### Unified control behavior
+- Unified back-button routing across inline flows with contextual back targets.
+- Fixed runtime-state normalization so `active_mode=live` is preserved instead of being silently downgraded back to paper.
+- Made `/abort` mode-aware:
+  paper resolves local positions, shadow cancels prepared rows, and live cancels tracked orders plus queues tracked positions for flatten review.
+- Made `/resolveall` mode-aware:
+  paper resolves at market, while shadow/live clear local rows and skip exchange-backed live items that still need explicit cancel or flatten handling.
+
 ## v2.7.3 - UI Cleanup, Regional Source Expansion, Calibration Sync and Debug Tooling (Apr 17-18, 2026)
 
 ### Cards and UI

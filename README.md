@@ -1,18 +1,18 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/WXWizard1013/ThermalPeak/main/Pics/logo-white.png" alt="ThermalPeak Logo" width="500"/>
 
-  **Scan The Heat, Trade The Peak.**
+  **Scan the heat, trade the peak.**
 
 ---
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
-[![v2.7.3](https://img.shields.io/badge/version-v2.7.3-orange.svg)]()
+[![v2.9](https://img.shields.io/badge/version-v2.9-orange.svg)]()
 
 </div>
 
-ThermalPeak is a private Telegram bot for scanning Polymarket D+1 weather markets and paper-trading the highest-edge temperature buckets. It compares live Polymarket CLOB prices against a weather stack built from GFS, multi-model consensus, regional forecast sources, and TAF confirmation, then manages signals, positions, exports, and diagnostics directly from Telegram.
+ThermalPeak is a private Telegram bot for scanning Polymarket D+1 weather markets and running a mode-aware `Paper` / `Shadow` / `Live` workflow around the highest-edge temperature buckets. It compares live Polymarket CLOB prices against a weather stack built from GFS, multi-model consensus, regional forecast sources, and TAF confirmation, then manages signals, positions, execution queues, wallet readiness, exports, and diagnostics directly from Telegram.
 
 ## Overview
 
@@ -28,7 +28,15 @@ For each active city/date, it:
 3. Maps the city to the exact Polymarket resolution station and applies station bias + city sigma.
 4. Scores each bucket with `norm.cdf`.
 5. Applies signal-quality gates, EV checks, Kelly sizing, and spread filters.
-6. Logs the trade and a separate forecast-history snapshot for later calibration.
+6. Logs the trade or execution intent plus a separate forecast-history snapshot for later calibration.
+
+## Execution Modes
+
+- `Paper`: fully local paper positions. `/pnl`, `/pos`, `/log`, and `/resolveall` operate on paper trades only.
+- `Shadow`: stages execution intents and review rows without submitting orders to the exchange. Good for validating queue logic, sizing, and operator flows.
+- `Live`: tracks live review, submission, resting orders, open positions, cancels, and flatten requests. Actual exchange submission requires wallet, signer, allowance, RPC, and `LIVE_TRADING_ENABLED=1`.
+
+If wallet or live infra is not configured, live mode can still queue and review rows, but it will not actually submit or flatten on Polymarket.
 
 ## Forecast Stack
 
@@ -82,14 +90,19 @@ ThermalPeak does not fire on raw edge alone.
 
 | Command | What it does |
 | :--- | :--- |
+| `/start` | Choose `Paper`, `Shadow`, or `Live`, and open the launch screen |
+| `/home` | Open the dashboard for the current mode |
 | `/signals` | Full refresh, then scans for current edge signals |
 | `/vol` | D+1 bucket volume table by city |
 | `/cities` | Browse active cities, forecasts, and bucket odds |
-| `/pnl` | Paper-trade summary card + unrealized PnL |
-| `/pos` | Open positions |
+| `/pnl` | Mode-aware PnL or queue summary card |
+| `/pos` | Current-mode book or open positions |
 | `/log` | Trade history |
 | `/export` | Downloads both trade CSV and forecast-history CSV |
 | `/status` | Bot health, scan status, pricing/model summary |
+| `/wallet` | Live wallet, allowance, gas, and signer readiness checks |
+| `/orders` | Shadow and live execution journal |
+| `/liveaudit` | Compact live truth report with attention-needed rows, exposure, and recent realized closes |
 | `/settings` | Signal, sizing, and risk controls |
 | `/sync` | Refresh forecast-history resolution and calibration data |
 | `/debug city` | Source diagnostics for one city |
@@ -99,29 +112,36 @@ ThermalPeak does not fire on raw edge alone.
 | `/version` | Version notes |
 | `/help` | Compact command list |
 | `/pause` / `/cont` | Pause or resume scanning |
-| `/resolveall` | Force-check all pending positions |
+| `/resolveall` | Resolve paper positions or clear the current shadow/live local book |
 | `/resetlog` | Reset the trade log |
-| `/abort` | Emergency stop and resolve-all flow |
+| `/abort` | Mode-aware emergency stop: resolve paper, cancel shadow rows, or cancel/flatten tracked live rows |
 
 ## Telegram UI
 
-- `/start` shows a reduced inline home screen:
-  `Signals`, `Volume`, `PnL`, `Cities`, `Export`, `Sync`, `Pause`, `Help`, `Settings`, and `Abort`.
+- `/start` opens the mode chooser and a compact launch panel.
+- `/home` renders the active mode dashboard with contextual back routing across inline flows.
 - The `/start` inline buttons keep emoji labels for quick scanning.
 - The Telegram slash-command menu uses plain-text descriptions with no emoji.
-- `Status`, `Log`, `Positions`, `Brief`, and `Drift` are intentionally not shown on the `/start` page.
+- `Status`, `Log`, and `Positions` are intentionally not shown on the launch panel.
 - Legacy `/brief` and `/drift` commands are removed from both the command menu and bot flows.
 
 ## Storage and Exports
 
-ThermalPeak stores two different datasets:
+ThermalPeak stores three core datasets:
 
 **Trade log**
-- Opened positions
+- Paper positions
 - Entry price
 - Fair value
 - Kelly size
 - PnL and outcome
+
+**Execution journal**
+- Shadow intents
+- Live review and blocked rows
+- Tracked live orders and live positions
+- Fill counts, cost basis, proceeds, and realized close metrics
+- CSV fallback file: `execution_orders.csv`
 
 **Forecast history**
 - One snapshot per `city + temp_date`
@@ -147,7 +167,7 @@ For calibration, the cleanest subset is:
 - `thermal_peak_history.csv`
 
 If `DATABASE_URL` is set, PostgreSQL is used.
-If not, the bot falls back to local CSV files.
+If not, the bot falls back to local CSV files, including `forecast_history.csv` and `execution_orders.csv`.
 
 ## Required Environment Variables
 
@@ -158,8 +178,28 @@ If not, the bot falls back to local CSV files.
 - `DATABASE_URL`
 - `AVWX_TOKEN`
 
+**Live trading and wallet checks**
+- `POLYMARKET_WALLET_ADDRESS`
+- `POLYMARKET_FUNDER_ADDRESS`
+- `POLYMARKET_PRIVATE_KEY`
+- `POLYMARKET_API_KEY`
+- `POLYMARKET_API_SECRET`
+- `POLYMARKET_API_PASSPHRASE`
+- `POLYGON_RPC_URL`
+- `POLYMARKET_USDC_ADDRESS`
+- `POLYMARKET_SPENDER`
+- `LIVE_TRADING_ENABLED`
+
 **Optional**
 - `TELEGRAM_CHAT_ID`
+- `POLYMARKET_CHAIN`
+- `POLYMARKET_CHAIN_ID`
+- `POLYMARKET_CLOB_HOST`
+- `POLYMARKET_SIGNATURE_TYPE`
+- `LIVE_MIN_GAS_NATIVE`
+- `LIVE_EXECUTOR_INTERVAL_SEC`
+- `LIVE_EXIT_SLIPPAGE`
+- `LIVE_WATCHDOG_INTERVAL_SEC`
 - `CWA_API_TOKEN`
 - `CWA_TOKEN`
 - `CWA_AUTHORIZATION`
@@ -172,27 +212,22 @@ ThermalPeak currently covers 50 active weather-market cities:
 
 New York, London, Singapore, Shanghai, Buenos Aires, Miami, Chicago, Ankara, Los Angeles, Tokyo, Paris, Toronto, Moscow, Hong Kong, Seoul, Seattle, Atlanta, Dallas, Denver, Houston, Sao Paulo, Wellington, Madrid, Warsaw, Taipei, Milan, Tel Aviv, Lucknow, Munich, Jakarta, San Francisco, Austin, Chengdu, Chongqing, Beijing, Shenzhen, Wuhan, Istanbul, Mexico City, Busan, Panama City, Amsterdam, Kuala Lumpur, Helsinki, Cape Town, Jeddah, Lagos, Guangzhou, Karachi, and Manila.
 
-## Notable v2.7.3 Additions
+## Notable v2.9 Additions
 
-- Cleaned city cards and position detail cards
-- `HKO` regional forecast for Hong Kong
-- `SMG` regional forecast for Guangzhou and Shenzhen
-- `CWA` handling fixed for Taipei
-- `/debug city` diagnostics
-- Dual-file `/export`
-- Forecast-history logging for calibration
-- Forecast-history trade-mark repair and full-row resolution sync
-- `/sync` command for manual forecast-history refresh before export
-- Proposed/final resolution tracking with winning-bucket metadata
-- Calibration-quality fields for exact vs bucket-derived actuals
-- `/signals` display refreshed to show GFS, seed, regional, TAF, final forecast, and expected error
-- `/start` home screen simplified, with `Sync` added and `/brief` and `/drift` removed
+- Fixed paper `NO` entry logging so stored entry price matches the traded side instead of the mirrored `YES` price.
+- Added legacy normalization for older open paper `NO` rows and recalculated TP values from the corrected entry.
+- `/pos` now renders the tracked side directly as `YES x% → y%` or `NO x% → y%`.
+- Live execution rows now retain richer fill, cost-basis, proceeds, and realized-close metrics.
+- Added `/liveaudit` for compact live operator review: readiness, attention-needed rows, open exposure, and recent realized live closes.
+- Visible bot strings, cards, and startup logs are aligned to `v2.9`.
 
 ## Status
 
 This bot is private and whitelist-only.
 
-It is built around paper trading, diagnostics, and calibration-first iteration rather than blind automation.
+It is built around calibration-first iteration, operator review, and staged execution rather than blind automation.
+
+`Paper` and `Shadow` are suitable for day-to-day testing. `Live` is now exchange-aware, but true live submission still depends on wallet, signer, allowance, RPC, and runtime readiness being correctly configured.
 
 ---
 
