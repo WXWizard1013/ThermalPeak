@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Telegram API](https://img.shields.io/badge/Telegram-Bot_API-0088cc.svg?logo=telegram)](https://core.telegram.org/bots/api)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-asyncpg-336791.svg?logo=postgresql)](https://www.postgresql.org/)
-[![v2.9](https://img.shields.io/badge/version-v2.9-orange.svg)]()
+[![v3.0](https://img.shields.io/badge/version-v3.0-orange.svg)]()
 
 </div>
 
@@ -212,14 +212,20 @@ ThermalPeak currently covers 50 active weather-market cities:
 
 New York, London, Singapore, Shanghai, Buenos Aires, Miami, Chicago, Ankara, Los Angeles, Tokyo, Paris, Toronto, Moscow, Hong Kong, Seoul, Seattle, Atlanta, Dallas, Denver, Houston, Sao Paulo, Wellington, Madrid, Warsaw, Taipei, Milan, Tel Aviv, Lucknow, Munich, Jakarta, San Francisco, Austin, Chengdu, Chongqing, Beijing, Shenzhen, Wuhan, Istanbul, Mexico City, Busan, Panama City, Amsterdam, Kuala Lumpur, Helsinki, Cape Town, Jeddah, Lagos, Guangzhou, Karachi, and Manila.
 
-## Notable v2.9 Additions
+## Notable v3.0 Additions
 
-- Fixed paper `NO` entry logging so stored entry price matches the traded side instead of the mirrored `YES` price.
-- Added legacy normalization for older open paper `NO` rows and recalculated TP values from the corrected entry.
-- `/pos` now renders the tracked side directly as `YES x% → y%` or `NO x% → y%`.
-- Live execution rows now retain richer fill, cost-basis, proceeds, and realized-close metrics.
-- Added `/liveaudit` for compact live operator review: readiness, attention-needed rows, open exposure, and recent realized live closes.
-- Visible bot strings, cards, and startup logs are aligned to `v2.9`.
+- Upgraded the bot into a fuller `Paper` / `Shadow` / `Live` operator workflow with live review, manual confirm, tracked live orders, tracked live positions, archived rows, and richer `/orders` and `/pos` views.
+- Added live operator tooling:
+  `/livetest`, `/liveaudit`, `/wallet`, `/poly`, and cleaner `/home` and `/start` cards for daily forward testing.
+- Added proxy-wallet aware live readiness so wallet checks can pass without native gas when the account is using the proxy/funder flow.
+- Added bot-managed live exits:
+  TP / SL arming, deep-value vs standard exit profiles, flatten / close-position flow, and richer live exit notes.
+- Added partial-fill handling and reconciliation:
+  live rows now track filled shares, resting remainders, near-resolution remainder auto-cancel, and closer-to-exchange live position metrics.
+- Added manual live controls and risk toggles:
+  flat-size mode, live/manual-entry gating in settings, and more flexible live queue behavior for operator-approved entries.
+- Simplified Telegram UI across live cards:
+  shorter `/wallet`, `/livetest`, `/liveaudit`, cleaner live review cards, single refresh actions, city headers on individual positions, probability blocks, and safer close-position confirmation.
 
 ## Status
 

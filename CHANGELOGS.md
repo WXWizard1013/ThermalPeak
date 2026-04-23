@@ -1,5 +1,46 @@
 # Changelog
 
+## v3.0 - Manual Live Workflow, Bot-Managed Exits and Operator Cleanup (Apr 21-23, 2026)
+
+### Live workflow and operator controls
+- Expanded the bot into a fuller `Paper` / `Shadow` / `Live` workflow with manual live review, tracked live rows, tracked live positions, archived rows, and richer `/orders` / `/pos` live-book handling.
+- Added `/livetest` as a live pre-check for deployment geo, wallet readiness, and queue state.
+- Added `/poly` with a one-tap Polymarket weather-market link from Telegram.
+- Added live/manual-entry risk controls in `/settings`, including a manual-entry toggle and flat-size workflow for forward testing.
+- Removed the old single-open-row canary bottleneck so multiple manual live intents can be reviewed without forced one-at-a-time blocking.
+
+### Wallet, readiness and proxy mode
+- Added stronger `/wallet` and `/liveaudit` views for live readiness, exposure, queues, attention-needed rows, and recent realized live closes.
+- Added proxy-wallet aware readiness so live review can pass without native gas when the account is using the proxy/funder setup.
+- Improved live readiness wording, geo-block messaging, and operator-facing status notes across `/wallet`, `/livetest`, and live review cards.
+
+### Bot-managed exits and live execution
+- Added bot-managed TP/SL arming for live positions instead of relying on visible resting exit orders at the exchange.
+- Added deep-value live exit behavior with a higher TP target than the standard profile.
+- Added explicit live exit-plan rendering on position cards:
+  profile, TP, SL mode, logic, and execution style.
+- Added safer live exit actions with `Close Pos` confirmation instead of one-tap flattening.
+
+### Partial fills, reconciliation and remainders
+- Added closer-to-exchange live reconciliation for open live rows and tracked positions.
+- Added partial-fill handling so live rows can show filled shares plus a resting entry remainder.
+- Added auto-cancel for small entry remainders near resolution while keeping the filled position alive.
+- Improved live share/basis updates so `/pos` and live cards stay closer to exchange truth during partial fills and fills that continue resting on the book.
+
+### Telegram UI cleanup
+- Simplified `/start`, `/home`, `/wallet`, `/livetest`, `/liveaudit`, and live review cards to remove extra wording and repetitive readiness noise.
+- Added UPnL to `/home` and `/pos`.
+- Added city names directly to individual live position headers.
+- Changed live position cards to show probability as cents-style entry vs now, instead of only percentages.
+- Unified `Sync Live` and `Refresh` into a single refresh action on live position and review cards.
+- Moved archived cancelled rows out of the main `/orders` queue into their own archived view.
+
+### Logging and docs
+- Visible cards, dashboards, and startup strings were aligned to `v3.0`.
+- README and changelog documentation were updated under `v3.0` without bumping to `v3.1`.
+
+---
+
 ## v2.9 - Live Audit, Directional Entry Repair and Richer Execution Truth (Apr 20-21, 2026)
 
 ### Paper book correctness
