@@ -1,5 +1,28 @@
 # Changelog
 
+## v3.1 - Exchange-Backed Live State, Cleaner Operator Views and Risk Controls (Apr 24, 2026)
+
+### Exchange-backed live state
+- `/orders` was simplified to focus on real exchange open orders instead of mixing internal queue state into the main body.
+- `/pos` gained exchange-position fallback so current live holdings can still show even if the bot row linkage goes stale.
+- Wallet, home, and PnL live summaries were updated to use the same exchange-backed live snapshot as `/pos`, reducing drift across views.
+- Live open-order fallback logic was tightened so known TP orders can still surface when the generic exchange open-order snapshot misses them.
+
+### Live controls and risk
+- Added `🤖 Automation` settings with `Auto` / `Manual` live-promotion control.
+- Added `Max Positions / Day` as a daily guardrail and made it mutually exclusive with max daily drawdown.
+- Deep-value sizing now defaults to half-size for both Kelly and flat-size workflows.
+
+### Operator UX and exports
+- `/orders` now includes `⏳ Pending` for internal review or submit items while `Archived` remains separate and `/log` covers recent closes.
+- Recent trade formatting was simplified into a cleaner operator log style with status, opened/closed times, realized PnL, and exit cents when available.
+- Execution export rows were cleaned up into a more readable live-journal format, and local Polymarket history is now used to fill some missing opened timestamps and trade counts.
+
+### Position and PnL card cleanup
+- `/pos` cards were compacted to show city-first headers, simplified status blocks, shares, created time, and cleaner trade or exit-plan sections.
+- Live prices were shifted from `%` to `¢` where they represent market price.
+- `/pnl` card text and footer labels were cleaned up, with win/loss replacing queued/live and cleaner live summary wording.
+
 ## v3.0 - Manual Live Workflow, Bot-Managed Exits and Operator Cleanup (Apr 21-23, 2026)
 
 ### Live workflow and operator controls
